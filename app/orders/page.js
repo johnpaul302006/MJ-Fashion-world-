@@ -143,12 +143,12 @@ function HostOrdersView() {
 
   // Load all orders on mount
   useEffect(() => {
-    fetchOrders()
+    const t = setTimeout(() => fetchOrders(), 0)
     // Auto-refresh every 30s
     const id = setInterval(() => fetchOrders({}, true), 30000)
     const onFocus = () => fetchOrders({}, true)
     window.addEventListener('focus', onFocus)
-    return () => { clearInterval(id); window.removeEventListener('focus', onFocus) }
+    return () => { clearTimeout(t); clearInterval(id); window.removeEventListener('focus', onFocus) }
   }, [fetchOrders])
 
   function handleSearch(e) {
@@ -367,7 +367,7 @@ function CustomerOrderView() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">Track Your Order</h1>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-        Enter your Order ID to see your order's status and tracking details.
+        Enter your Order ID to see your order&apos;s status and tracking details.
       </p>
 
       <form onSubmit={search} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 space-y-3">

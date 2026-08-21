@@ -271,7 +271,7 @@ export default async function Home() {
               <h3 className="text-3xl sm:text-5xl font-black text-white mb-2">
                 UP TO <span className="text-amber-300">50% OFF</span>
               </h3>
-              <p className="text-white/70 mb-6 text-sm">On selected styles. Grab them before they're gone!</p>
+              <p className="text-white/70 mb-6 text-sm">On selected styles. Grab them before they&apos;re gone!</p>
               <div className="inline-flex items-center gap-2 bg-white text-gray-900 font-black px-8 py-3 text-sm tracking-wider uppercase group-hover:-translate-y-0.5 transition-transform duration-200 shadow-lg">
                 SHOP THE SALE
               </div>

@@ -5,11 +5,23 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 const AuthCtx = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [state, setState] = useState({ loading: true, user: null, offers: [], announcements: [], announcement: '' })
+  const [state, setState] = useState({
+    loading: true,
+    user: null,
+    offers: [],
+    announcements: [],
+    announcement: '',
+    paymentGateways: { razorpay: false, stripe: false },
+  })
 
   const refresh = useCallback(async (extra) => {
     if (extra) {
-      setState((s) => ({ ...s, user: extra.user || s.user, offers: extra.offers || s.offers, loading: false }))
+      setState((s) => ({
+        ...s,
+        ...(extra.user !== undefined ? { user: extra.user } : {}),
+        ...(extra.offers ? { offers: extra.offers } : {}),
+        loading: false,
+      }))
       return
     }
     try {
@@ -21,9 +33,10 @@ export function AuthProvider({ children }) {
         offers: data.offers || [],
         announcements: data.announcements || [],
         announcement: data.announcement || '',
+        paymentGateways: data.paymentGateways || { razorpay: false, stripe: false },
       })
     } catch {
-      setState({ loading: false, user: null, offers: [], announcements: [], announcement: '' })
+      setState((s) => ({ ...s, loading: false, user: null }))
     }
   }, [])
 
@@ -32,21 +45,34 @@ export function AuthProvider({ children }) {
     return () => clearTimeout(t)
   }, [refresh])
 
-  async function login(email, password) {
+  // identifier can be an email address OR a mobile number
+  async function login(identifier, password) {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Login failed')
-    await refresh({ user: { email: data.email, role: data.role } })
+    await refresh()
+    return data
+  }
+
+  async function signup(payload) {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Sign up failed'), { fieldErrors: data.fieldErrors })
+    await refresh()
     return data
   }
 
   async function logout() {
     await fetch('/api/login', { method: 'DELETE' })
-    setState({ loading: false, user: null, offers: [] })
+    setState((s) => ({ ...s, user: null }))
   }
 
   const value = {
@@ -54,6 +80,7 @@ export function AuthProvider({ children }) {
     hosting: state.user?.role === 'host',
     user: state.user,
     login,
+    signup,
     logout,
     refresh,
   }

@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { getSettings, saveSettings } from '@/lib/data'
 import { dbConfigured } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
+import { availableGateways } from '@/lib/payments'
 
 export async function GET() {
   const settings = await getSettings()
-  return NextResponse.json({ settings })
+  return NextResponse.json({ settings, paymentGateways: availableGateways() })
 }
 
 export async function PUT(request) {

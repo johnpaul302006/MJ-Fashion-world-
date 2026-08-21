@@ -32,7 +32,10 @@ function CouponManager() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const t = setTimeout(load, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   async function add(e) {
     e.preventDefault()
