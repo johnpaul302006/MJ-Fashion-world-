@@ -141,7 +141,7 @@ export default function Footer({ storeName, address, phone }) {
       {/* ── Bottom bar ───────────────────────────── */}
       <div className="border-t border-[#222]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
-          <p>© {year} {storeName || 'MJ Fashion'}. All rights reserved.</p>
+          <p>© {year} S John Paul. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <Link href="/admin" className="hover:text-gray-400 transition-colors">Seller Login</Link>
             <span className="text-gray-700">·</span>
