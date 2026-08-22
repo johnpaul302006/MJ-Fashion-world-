@@ -3,6 +3,7 @@ import { getProducts } from '@/lib/data'
 import { connectDb, dbConfigured } from '@/lib/db'
 import { Product } from '@/lib/models'
 import { requireAdmin } from '@/lib/auth'
+import { isNonImageLink } from '@/lib/img-url'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -34,6 +35,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'database_not_configured' }, { status: 503 })
     }
     const data = await request.json()
+    if (isNonImageLink(String(data.image || ''))) {
+      return NextResponse.json(
+        { error: 'That is a social media page link, not an image. Please upload the photo from your PC instead.' },
+        { status: 400 }
+      )
+    }
     const product = await Product.create({
       name: String(data.name || '').trim(),
       category: String(data.category || 'men'),

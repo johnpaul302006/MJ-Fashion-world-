@@ -5,7 +5,7 @@ import { CATEGORIES, SIZES } from '@/lib/categories'
 import { inr } from '@/lib/format'
 import { fileToDataUrl } from '@/lib/image-upload'
 import { fallbackImg } from '@/lib/img-fallback'
-import { imgUrl } from '@/lib/img-url'
+import { imgUrl, isNonImageLink } from '@/lib/img-url'
 
 const EMPTY = {
   name: '',
@@ -59,6 +59,10 @@ export default function AdminProducts() {
 
   async function save(e) {
     e.preventDefault()
+    if (isNonImageLink(form.image)) {
+      setMsg('✗ That is a social media page link, not an image. Use the "Upload photo" button instead.')
+      return
+    }
     setSaving(true)
     setMsg('')
     try {
@@ -331,6 +335,11 @@ export default function AdminProducts() {
               </div>
               <span className="mt-1.5 block text-[11px] text-slate-400 dark:text-slate-500">or paste an image link below — <b>JPG, PNG, WebP and Google Images / Google Photos links are supported</b> (images are fetched automatically so they display everywhere).</span>
               <input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://...jpg" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
+              {isNonImageLink(form.image) && (
+                <span className="mt-1.5 block text-[11px] font-semibold text-red-600 dark:text-red-400">
+                  ⚠ That is a social media page link (Instagram/Facebook etc.), not an image. Click &quot;Upload photo&quot; and pick the picture from your PC instead.
+                </span>
+              )}
             </label>
             {form.image ? (
               <img src={imgUrl(form.image)} alt="Preview" onError={fallbackImg} className="max-h-40 rounded-xl border border-slate-200 dark:border-slate-700" />

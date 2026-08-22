@@ -3,6 +3,7 @@ import { getProduct } from '@/lib/data'
 import { connectDb } from '@/lib/db'
 import { Product } from '@/lib/models'
 import { requireAdmin } from '@/lib/auth'
+import { isNonImageLink } from '@/lib/img-url'
 
 export async function GET(_request, { params }) {
   const { id } = await params
@@ -24,6 +25,12 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'database_not_configured' }, { status: 503 })
     }
     const data = await request.json()
+    if (typeof data.image !== 'undefined' && isNonImageLink(String(data.image))) {
+      return NextResponse.json(
+        { error: 'That is a social media page link, not an image. Please upload the photo from your PC instead.' },
+        { status: 400 }
+      )
+    }
     const allowed = ['name', 'category', 'price', 'mrp', 'stock', 'sizes', 'colors', 'image', 'description', 'featured']
     const patch = {}
     for (const k of allowed) {
