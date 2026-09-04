@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { inr, discountPct } from '@/lib/format'
 import { addToCart } from '@/lib/cart-client'
 import { HostDeleteButton } from '@/components/HostProductActions'
+import { RatingBadge } from '@/components/ProductReviews'
 import { fallbackImg } from '@/lib/img-fallback'
 import { imgUrl } from '@/lib/img-url'
 
@@ -68,6 +69,9 @@ export default function ProductCard({ product }) {
             No image
           </div>
         )}
+
+        {/* Rating badge */}
+        <RatingBadge productId={product._id} />
 
         {/* Badges */}
         {pct > 0 && (

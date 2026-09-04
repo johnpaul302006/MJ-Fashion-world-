@@ -73,71 +73,6 @@ export default async function ShopPage({ searchParams }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex flex-col lg:flex-row gap-6">
-
-          {/* ── SIDEBAR FILTERS ──────────────── */}
-          <aside className="lg:w-60 shrink-0">
-            <div className="lg:sticky lg:top-[130px] space-y-4">
-
-              {/* Category filter */}
-              <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-[#222]">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-800 dark:text-gray-200">
-                    Category
-                  </h3>
-                </div>
-                <div className="p-3 space-y-0.5">
-                  <Link
-                    href={onSale ? '/shop?onSale=1' : '/shop'}
-                    className={`block px-3 py-2 text-sm rounded-sm transition-colors ${
-                      !category ? 'bg-[#111] dark:bg-white text-white dark:text-[#111] font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]'
-                    }`}
-                  >
-                    All Categories
-                  </Link>
-                  {CATEGORIES.map((c) => (
-                    <Link
-                      key={c.slug}
-                      href={`/shop?category=${c.slug}${onSale ? '&onSale=1' : ''}`}
-                      className={`flex items-center gap-2 px-3 py-2 text-sm rounded-sm transition-colors ${
-                        category === c.slug
-                          ? 'bg-[#111] dark:bg-white text-white dark:text-[#111] font-semibold'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]'
-                      }`}
-                    >
-                      <span>{c.emoji}</span>
-                      <span>{c.label}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sale filter */}
-              <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-[#222]">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-800 dark:text-gray-200">
-                    Offers
-                  </h3>
-                </div>
-                <div className="p-3">
-                  <Link
-                    href={`/shop?${category ? `category=${category}&` : ''}onSale=1`}
-                    className={`flex items-center gap-2 px-3 py-2 text-sm rounded-sm transition-colors ${
-                      onSale
-                        ? 'bg-brand/10 text-brand font-semibold border border-brand/30'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]'
-                    }`}
-                  >
-                    On Sale Only
-                  </Link>
-                </div>
-              </div>
-
-            </div>
-          </aside>
-
-          {/* ── PRODUCT GRID ─────────────────── */}
-          <div className="flex-1 min-w-0">
 
             {/* Header row */}
             <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -197,8 +132,6 @@ export default async function ShopPage({ searchParams }) {
                 ))}
               </div>
             )}
-          </div>
-        </div>
       </div>
     </div>
   )

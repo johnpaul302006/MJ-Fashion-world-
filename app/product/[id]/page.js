@@ -4,6 +4,7 @@ import { getProduct } from '@/lib/data'
 import { CATEGORY_LABEL } from '@/lib/categories'
 import ProductBuyBox from '@/components/ProductBuyBox'
 import ProductImage from '@/components/ProductImage'
+import ProductReviews, { RatingBadge } from '@/components/ProductReviews'
 import { inr, discountPct } from '@/lib/format'
 
 export default async function ProductPage({ params }) {
@@ -65,6 +66,7 @@ export default async function ProductPage({ params }) {
                   </span>
                 </div>
               )}
+              <RatingBadge productId={product._id} />
             </div>
           </div>
 
@@ -189,6 +191,9 @@ export default async function ProductPage({ params }) {
             </p>
           </div>
         )}
+
+        {/* ── Ratings & Reviews ────────────── */}
+        <ProductReviews productId={product._id} />
 
         {/* ── Quick links ─────────────────── */}
         <div className="mt-6 flex flex-wrap gap-3">
