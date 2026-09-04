@@ -26,6 +26,11 @@ export default async function RootLayout({ children }) {
         <SiteShell storeName={settings.storeName} address={settings.address} phone={settings.phone}>
           {children}
         </SiteShell>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`
+          }}
+        />
       </body>
     </html>
   );
