@@ -7,30 +7,30 @@ import { HostAddButton } from '@/components/HostProductActions'
 import { imgUrl } from '@/lib/img-url'
 import { inr, discountPct } from '@/lib/format'
 
-/* ── Category images via /api/img proxy ──────────────────── */
+/* ── Category images (direct Pexels links — no proxy needed) ── */
 const CAT_IMAGE = {
   boys:     {
-    img: '/api/img?u=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F15459807%2Fpexels-photo-15459807.jpeg%3Fauto%3Dcompress%26cs%3Dtinysrgb%26w%3D480',
+    img: 'https://images.pexels.com/photos/15459807/pexels-photo-15459807.jpeg?auto=compress&cs=tinysrgb&w=480',
     label: 'BOYS',
     sub: 'Trendy Fits',
   },
   girls:    {
-    img: '/api/img?u=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F19214177%2Fpexels-photo-19214177.jpeg%3Fauto%3Dcompress%26cs%3Dtinysrgb%26w%3D480',
+    img: 'https://images.pexels.com/photos/19214177/pexels-photo-19214177.jpeg?auto=compress&cs=tinysrgb&w=480',
     label: 'GIRLS',
     sub: 'New Collection',
   },
   children: {
-    img: '/api/img?u=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F33776741%2Fpexels-photo-33776741.jpeg%3Fauto%3Dcompress%26cs%3Dtinysrgb%26w%3D480',
+    img: 'https://images.pexels.com/photos/33776741/pexels-photo-33776741.jpeg?auto=compress&cs=tinysrgb&w=480',
     label: 'CHILDREN',
     sub: 'Fun & Colorful',
   },
   men:      {
-    img: '/api/img?u=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F35312945%2Fpexels-photo-35312945.jpeg%3Fauto%3Dcompress%26cs%3Dtinysrgb%26w%3D480',
+    img: 'https://images.pexels.com/photos/35312945/pexels-photo-35312945.jpeg?auto=compress&cs=tinysrgb&w=480',
     label: 'MEN',
     sub: 'Classic Styles',
   },
   women:    {
-    img: '/api/img?u=https%3A%2F%2Fimages.pexels.com%2Fphotos%2F9767828%2Fpexels-photo-9767828.jpeg%3Fauto%3Dcompress%26cs%3Dtinysrgb%26w%3D480',
+    img: 'https://images.pexels.com/photos/9767828/pexels-photo-9767828.jpeg?auto=compress&cs=tinysrgb&w=480',
     label: 'WOMEN',
     sub: 'Latest Trends',
   },
