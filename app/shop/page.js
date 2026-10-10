@@ -1,5 +1,4 @@
-import { getProducts } from '@/lib/data'
-import { CATEGORIES, CATEGORY_LABEL } from '@/lib/categories'
+import { getProducts, getCategories } from '@/lib/data'
 import SortDropdown from '@/components/SortDropdown'
 import { HostAddButton } from '@/components/HostProductActions'
 import ShopContent from '@/components/ShopContent'
@@ -8,15 +7,18 @@ import Link from 'next/link'
 export default async function ShopPage({ searchParams }) {
   const { category, q, size, sort, onSale } = await searchParams
 
-  const products = await getProducts({
-    category,
-    q,
-    size: size === 'all' ? undefined : size,
-    sort,
-    onSale: onSale === '1' || onSale === 'true',
-  })
+  const [products, categories] = await Promise.all([
+    getProducts({
+      category,
+      q,
+      size: size === 'all' ? undefined : size,
+      sort,
+      onSale: onSale === '1' || onSale === 'true',
+    }),
+    getCategories(),
+  ])
 
-  const activeCategory = CATEGORIES.find((c) => c.slug === category)?.label || null
+  const activeCategory = categories.find((c) => c.slug === category)?.label || null
   const title = onSale
     ? 'Sale'
     : activeCategory
@@ -73,6 +75,7 @@ export default async function ShopPage({ searchParams }) {
         {/* Interactive Shop Content with Live Smart Search & Animated GSAP Flip Grid */}
         <ShopContent
           initialProducts={products}
+          initialCategories={categories}
           activeCategory={category}
           initialQuery={q || ''}
           onSale={onSale === '1' || onSale === 'true'}

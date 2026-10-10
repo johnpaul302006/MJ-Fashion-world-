@@ -125,6 +125,13 @@ export default function AccountMenu({ isOpen, onClose }) {
     return () => window.removeEventListener('wishlist-updated', update)
   }, [])
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setWishCount(wishlistCount())
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [user?.email])
+
   // Close on outside click
   useEffect(() => {
     if (!isOpen) return

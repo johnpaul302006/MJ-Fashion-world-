@@ -26,6 +26,7 @@ const EMPTY = {
 
 export default function AdminProducts() {
   const [products, setProducts] = useState(null)
+  const [categories, setCategories] = useState(CATEGORIES)
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -38,10 +39,21 @@ export default function AdminProducts() {
 
   useEffect(() => {
     load()
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.categories) && d.categories.length > 0) {
+          setCategories(d.categories)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   function openAdd() {
-    setForm(EMPTY)
+    setForm({
+      ...EMPTY,
+      category: categories[0]?.slug || 'men',
+    })
     setModal('add')
   }
 
@@ -136,7 +148,7 @@ export default function AdminProducts() {
           <button onClick={() => setFilter('all')} className={`text-xs font-semibold px-3 py-1.5 rounded-full ${filter === 'all' ? 'bg-brand text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
             All ({products?.length || 0})
           </button>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button key={c.slug} onClick={() => setFilter(c.slug)} className={`text-xs font-semibold px-3 py-1.5 rounded-full ${filter === c.slug ? 'bg-brand text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
               {c.label}
             </button>
@@ -299,7 +311,7 @@ export default function AdminProducts() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none">
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.label}</option>
                 ))}
               </select>

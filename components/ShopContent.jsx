@@ -16,10 +16,22 @@ export default function ShopContent({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [categories, setCategories] = useState(CATEGORIES)
   const [searchTerm, setSearchTerm] = useState(initialQuery)
   const [activeQuery, setActiveQuery] = useState(initialQuery)
   const [, startTransition] = useTransition()
   const debounceRef = useRef(null)
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.categories) && d.categories.length > 0) {
+          setCategories(d.categories)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Derived filtered & ranked products using Smart Search engine
   const products = useMemo(() => {
@@ -119,7 +131,7 @@ export default function ShopContent({
           <span>New Arrivals</span>
         </Link>
 
-        {CATEGORIES.map((c) => (
+        {categories.map((c) => (
           <Link
             key={c.slug}
             href={`/shop?category=${c.slug}${onSale ? '&onSale=1' : ''}`}

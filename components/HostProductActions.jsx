@@ -12,8 +12,20 @@ export function HostAddButton({ category }) {
   const { hosting } = useAuth()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [categories, setCategories] = useState(CATEGORIES)
   const [form, setForm] = useState({ ...EMPTY, category: category || 'men' })
   const [busy, setBusy] = useState(false)
+
+  const loadCategories = () => {
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.categories) && d.categories.length > 0) {
+          setCategories(d.categories)
+        }
+      })
+      .catch(() => {})
+  }
 
   if (!hosting) return null
 
@@ -53,7 +65,10 @@ export function HostAddButton({ category }) {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          loadCategories()
+          setOpen(true)
+        }}
         className="text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg ml-2"
       >
         ＋ Add Product
@@ -68,10 +83,10 @@ export function HostAddButton({ category }) {
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name *" className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
             <input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Brand (e.g. Nike, Zara)" className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
             {category ? (
-              <p className="text-xs font-semibold text-slate-500">Section: {CATEGORIES.find((c) => c.slug === category)?.label || category}</p>
+              <p className="text-xs font-semibold text-slate-500">Section: {categories.find((c) => c.slug === category)?.label || category}</p>
             ) : (
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm outline-none">
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.label}</option>
                 ))}
               </select>

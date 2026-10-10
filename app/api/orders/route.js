@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { connectDb, dbConfigured } from '@/lib/db'
-import { Order, Product, Coupon, Address } from '@/lib/models'
+import { Order, Product, Coupon, Address, Cart } from '@/lib/models'
 import { getSettings } from '@/lib/data'
 import { genOrderId } from '@/lib/format'
 import { getUser, requireUser } from '@/lib/auth'
@@ -391,19 +391,35 @@ export async function POST(request) {
     let subtotal = 0
     for (const i of items) {
       const p = byId.get(String(i.id))
-      if (!p) throw new Error(`Product not found: ${i.id}`)
       const qty = Math.max(1, Math.min(Number(i.qty) || 1, 20))
-      if (p.stock < qty) throw new Error(`Only ${p.stock} left of "${p.name}"`)
-      orderItems.push({
-        productId: p._id,
-        name: p.name,
-        image: p.image,
-        size: String(i.size || 'Free Size'),
-        qty,
-        price: p.price,
-        mrp: p.mrp,
-      })
-      subtotal += p.price * qty
+      if (p) {
+        if (typeof p.stock === 'number' && p.stock < qty) {
+          throw new Error(`Only ${p.stock} left of "${p.name}"`)
+        }
+        orderItems.push({
+          productId: p._id,
+          name: p.name,
+          image: p.image || '',
+          size: String(i.size || 'Free Size'),
+          qty,
+          price: p.price,
+          mrp: p.mrp || p.price,
+        })
+        subtotal += p.price * qty
+      } else if (i.name && Number(i.price) > 0) {
+        orderItems.push({
+          productId: mongoose.Types.ObjectId.isValid(i.id) ? i.id : new mongoose.Types.ObjectId(),
+          name: String(i.name),
+          image: String(i.image || ''),
+          size: String(i.size || 'Free Size'),
+          qty,
+          price: Number(i.price),
+          mrp: Number(i.mrp) || Number(i.price),
+        })
+        subtotal += Number(i.price) * qty
+      } else {
+        throw new Error(`Product not found: ${i.id}`)
+      }
     }
 
     const settings = await getSettings()
@@ -472,6 +488,21 @@ export async function POST(request) {
     await Promise.all(
       orderItems.map((i) => Product.findByIdAndUpdate(i.productId, { $inc: { stock: -i.qty } }))
     )
+
+    // Clear the authenticated user's database cart upon placing the order
+    try {
+      await Cart.findOneAndUpdate(
+        {
+          $or: [
+            { userId: String(dbUser.id || dbUser.email) },
+            { userEmail: String(dbUser.email || '').toLowerCase() },
+          ],
+        },
+        { $set: { items: [] } }
+      )
+    } catch {
+      // Non-fatal
+    }
 
     // ── Initialise the chosen payment gateway ────────────────
     let payment = null

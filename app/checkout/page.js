@@ -345,6 +345,7 @@ export default function CheckoutPage() {
   const router = useRouter()
 
   const [items, setItems] = useState([])
+  const [cartLoaded, setCartLoaded] = useState(false)
   const [settings, setSettings] = useState(null)
   const [gateways, setGateways] = useState(null)
   const [addresses, setAddresses] = useState(null) // null = still loading
@@ -367,7 +368,10 @@ export default function CheckoutPage() {
   }, [authLoading, user, router])
 
   useEffect(() => {
-    const update = () => setItems(getCart())
+    const update = () => {
+      setItems(getCart())
+      setCartLoaded(true)
+    }
     const t = setTimeout(update, 0)
     window.addEventListener('cart-updated', update)
     fetch('/api/settings')
@@ -391,6 +395,14 @@ export default function CheckoutPage() {
       window.removeEventListener('cart-updated', update)
     }
   }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setItems(getCart())
+      setCartLoaded(true)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [user?.email])
 
   // Load saved delivery addresses for the signed-in user
   useEffect(() => {
@@ -443,6 +455,14 @@ export default function CheckoutPage() {
 
   function buildOrderPayload() {
     const payload = {
+      items: items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        price: i.price,
+        image: i.image,
+        size: i.size || 'Free Size',
+        qty: Number(i.qty) || 1,
+      })),
       method,
       utr: utr.trim(),
       couponCode: coupon?.code || '',
@@ -636,7 +656,12 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {items.length === 0 ? (
+        {!cartLoaded ? (
+          <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm p-16 text-center">
+            <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Loading your bag…</p>
+          </div>
+        ) : items.length === 0 ? (
           /* ── EMPTY CART ──────────────────── */
           <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm p-16 text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-[#222] rounded-full flex items-center justify-center">

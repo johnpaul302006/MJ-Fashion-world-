@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation'
 import { inr, shortDate, getReturnEligibility } from '@/lib/format'
 import { getStatusMeta } from '@/lib/categories'
 import ReturnExchangeModal from '@/components/ReturnExchangeModal'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { logout } = useAuth() || {}
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('profile') // 'profile' | 'orders' | 'security' | 'addresses'
@@ -319,7 +321,11 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/login', { method: 'DELETE' })
+      if (logout) {
+        await logout()
+      } else {
+        await fetch('/api/login', { method: 'DELETE' })
+      }
       router.push('/')
       router.refresh()
     } catch {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getProduct } from '@/lib/data'
 import { connectDb } from '@/lib/db'
-import { Product } from '@/lib/models'
+import { Product, Cart, Wishlist } from '@/lib/models'
 import { requireAdmin, getUser } from '@/lib/auth'
 import { isNonImageLink } from '@/lib/img-url'
 
@@ -74,6 +74,13 @@ export async function DELETE(_request, { params }) {
     }
     const product = await Product.findByIdAndDelete(id)
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+
+    // Gracefully remove deleted product from all user bags and wishlists
+    try {
+      await Cart.updateMany({}, { $pull: { items: { id: String(id) } } })
+      await Wishlist.updateMany({}, { $pull: { items: { id: String(id) } } })
+    } catch {}
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })

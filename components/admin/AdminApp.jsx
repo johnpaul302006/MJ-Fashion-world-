@@ -11,10 +11,12 @@ import AdminSettings from '@/components/admin/AdminSettings'
 import AdminBroadcast from '@/components/admin/AdminBroadcast'
 import AdminCoupons from '@/components/admin/AdminCoupons'
 import AdminReturns from '@/components/admin/AdminReturns'
+import AdminCategories from '@/components/admin/AdminCategories'
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'products', label: 'Products' },
+  { id: 'categories', label: '🏷 Categories' },
   { id: 'orders', label: 'Orders' },
   { id: 'returns', label: '📦 Returns & Exchanges' },
   { id: 'coupons', label: '🎟 Coupons' },
@@ -96,6 +98,7 @@ export default function AdminApp() {
 
       {tab === 'dashboard' ? <AdminDashboard goToOrders={() => setTab('orders')} goToProducts={() => setTab('products')} /> : null}
       {tab === 'products' ? <AdminProducts /> : null}
+      {tab === 'categories' ? <AdminCategories /> : null}
       {tab === 'orders' ? <AdminOrders /> : null}
       {tab === 'returns' ? <AdminReturns /> : null}
       {tab === 'coupons' ? <AdminCoupons /> : null}

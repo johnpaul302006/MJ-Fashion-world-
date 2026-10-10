@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { syncCartUser } from '@/lib/cart-client'
+import { syncWishlistUser } from '@/lib/wishlist-client'
 
 const AuthCtx = createContext(null)
 
@@ -16,6 +18,10 @@ export function AuthProvider({ children }) {
 
   const refresh = useCallback(async (extra) => {
     if (extra) {
+      if (extra.user !== undefined) {
+        syncCartUser(extra.user)
+        syncWishlistUser(extra.user)
+      }
       setState((s) => ({
         ...s,
         ...(extra.user !== undefined ? { user: extra.user } : {}),
@@ -27,6 +33,8 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch('/api/me')
       const data = await res.json()
+      syncCartUser(data.user)
+      syncWishlistUser(data.user)
       setState({
         loading: false,
         user: data.user,
@@ -36,6 +44,8 @@ export function AuthProvider({ children }) {
         paymentGateways: data.paymentGateways || { razorpay: false, stripe: false },
       })
     } catch {
+      syncCartUser(null)
+      syncWishlistUser(null)
       setState((s) => ({ ...s, loading: false, user: null }))
     }
   }, [])
@@ -72,6 +82,8 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     await fetch('/api/login', { method: 'DELETE' })
+    syncCartUser(null)
+    syncWishlistUser(null)
     setState((s) => ({ ...s, user: null }))
   }
 

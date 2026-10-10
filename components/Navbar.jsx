@@ -132,6 +132,14 @@ export default function Navbar({ storeName, user }) {
     }
   }, [])
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCount(cartCount())
+      setWishCount(wishlistCount())
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [currentUser?.email])
+
   function toggleTheme() {
     const next = !dark
     setDark(next)

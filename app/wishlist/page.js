@@ -8,6 +8,7 @@ import { getWishlist, removeFromWishlist } from '@/lib/wishlist-client'
 import { fallbackImg } from '@/lib/img-fallback'
 import { imgUrl } from '@/lib/img-url'
 import { RatingBadge } from '@/components/ProductReviews'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 function HeartOutlineIcon() {
   return (
@@ -35,6 +36,7 @@ function BagIcon() {
 }
 
 export default function WishlistPage() {
+  const { user } = useAuth() || {}
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [addedIds, setAddedIds] = useState({})
@@ -57,6 +59,14 @@ export default function WishlistPage() {
       window.removeEventListener('wishlist-updated', handleUpdate)
     }
   }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setItems(getWishlist())
+      setLoading(false)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [user?.email])
 
   function handleRemove(id) {
     const updated = removeFromWishlist(id)
