@@ -78,3 +78,46 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Could not save the address. Please try again.' }, { status: 500 })
   }
 }
+
+export async function PATCH(request) {
+  const user = await getCurrentDbUser()
+  if (!user) return NextResponse.json({ error: 'Please log in to continue' }, { status: 401 })
+
+  try {
+    const { id, isDefault } = await request.json()
+    if (!id) return NextResponse.json({ error: 'Address ID required' }, { status: 400 })
+
+    if (!(await connectDb())) {
+      return NextResponse.json({ error: 'Database not reachable' }, { status: 503 })
+    }
+
+    if (isDefault) {
+      await Address.updateMany({ userId: user.id }, { isDefault: false })
+      await Address.updateOne({ _id: id, userId: user.id }, { isDefault: true })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ error: 'Could not update address' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request) {
+  const user = await getCurrentDbUser()
+  if (!user) return NextResponse.json({ error: 'Please log in to continue' }, { status: 401 })
+
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = (searchParams.get('id') || '').trim()
+    if (!id) return NextResponse.json({ error: 'Address ID required' }, { status: 400 })
+
+    if (!(await connectDb())) {
+      return NextResponse.json({ error: 'Database not reachable' }, { status: 503 })
+    }
+
+    await Address.deleteOne({ _id: id, userId: user.id })
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ error: 'Could not delete address' }, { status: 500 })
+  }
+}

@@ -9,6 +9,7 @@ import { imgUrl, isNonImageLink } from '@/lib/img-url'
 
 const EMPTY = {
   name: '',
+  brand: '',
   category: 'men',
   price: '',
   mrp: '',
@@ -16,8 +17,11 @@ const EMPTY = {
   sizes: ['M', 'L', 'XL'],
   colors: '',
   image: '',
+  images: '',
+  tags: '',
   description: '',
   featured: false,
+  isNewArrival: false,
 }
 
 export default function AdminProducts() {
@@ -44,6 +48,7 @@ export default function AdminProducts() {
   function openEdit(p) {
     setForm({
       name: p.name,
+      brand: p.brand || '',
       category: p.category,
       price: p.price,
       mrp: p.mrp,
@@ -51,8 +56,11 @@ export default function AdminProducts() {
       sizes: p.sizes || [],
       colors: (p.colors || []).join(', '),
       image: p.image || '',
+      images: Array.isArray(p.images) ? p.images.join(', ') : (p.images || ''),
+      tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
       description: p.description || '',
-      featured: p.featured,
+      featured: Boolean(p.featured),
+      isNewArrival: Boolean(p.isNewArrival),
     })
     setModal(p._id)
   }
@@ -66,13 +74,24 @@ export default function AdminProducts() {
     setSaving(true)
     setMsg('')
     try {
+      const extraImages = form.images
+        ? form.images.split(',').map((img) => img.trim()).filter(Boolean)
+        : []
+      const allImages = form.image
+        ? [form.image, ...extraImages.filter((img) => img !== form.image)]
+        : extraImages
+
       const payload = {
         ...form,
+        brand: form.brand.trim(),
         price: Number(form.price),
         mrp: Number(form.mrp),
         stock: Number(form.stock),
         colors: form.colors.split(',').map((c) => c.trim()).filter(Boolean),
+        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        images: allImages,
         featured: Boolean(form.featured),
+        isNewArrival: Boolean(form.isNewArrival),
       }
       const res = await fetch(`/api/products${modal === 'add' ? '' : `/${modal}`}`, {
         method: modal === 'add' ? 'POST' : 'PATCH',
@@ -151,6 +170,7 @@ export default function AdminProducts() {
                   <th className="py-2.5 px-3 w-44">Price Adjust</th>
                   <th className="py-2.5 px-3">Stock</th>
                   <th className="py-2.5 px-3">Featured</th>
+                  <th className="py-2.5 px-3">New Arrival</th>
                   <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -168,7 +188,7 @@ export default function AdminProducts() {
                           )}
                           <div>
                             <p className="font-semibold text-slate-800 dark:text-slate-100 max-w-56">{p.name}</p>
-                            <p className="text-xs text-slate-400 dark:text-slate-500">{p.category} · sizes: {(p.sizes || []).join(', ') || '—'}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">{p.category} {p.brand ? `· ${p.brand}` : ''} · sizes: {(p.sizes || []).join(', ') || '—'}</p>
                           </div>
                         </div>
                       </td>
@@ -238,7 +258,15 @@ export default function AdminProducts() {
                           onClick={() => patch(p._id, { featured: !p.featured })}
                           className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${p.featured ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
                         >
-                          {p.featured ? '★ Featured' : 'Not featured'}
+                          {p.featured ? '★ Featured' : 'Standard'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => patch(p._id, { isNewArrival: !p.isNewArrival })}
+                          className={`text-xs font-bold px-2.5 py-1.5 rounded-full transition ${p.isNewArrival ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                        >
+                          {p.isNewArrival ? '✦ New Arrival' : 'Standard'}
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right whitespace-nowrap">
@@ -265,7 +293,10 @@ export default function AdminProducts() {
               <h2 className="font-bold text-slate-900 dark:text-white">{modal === 'add' ? 'Add New Product' : 'Edit Product'}</h2>
               <button type="button" onClick={() => setModal(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl">✕</button>
             </div>
-            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name * (e.g. Cotton T-Shirt Blue)" className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            <div className="grid grid-cols-3 gap-2">
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name * (e.g. Cotton T-Shirt Blue)" className="col-span-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+              <input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Brand (e.g. Nike, Zara)" className="border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none">
                 {CATEGORIES.map((c) => (
@@ -298,13 +329,19 @@ export default function AdminProducts() {
                   ))}
                 </select>
               </label>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Colors (comma separated)
-                <input value={form.colors} onChange={(e) => setForm({ ...form, colors: e.target.value })} placeholder="e.g. Blue, Black" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
-              </label>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Colors (comma separated)
+                  <input value={form.colors} onChange={(e) => setForm({ ...form, colors: e.target.value })} placeholder="e.g. Blue, Black" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
+                </label>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Search Tags (comma separated)
+                  <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="e.g. oversized, streetwear, summer" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
+                </label>
+              </div>
             </div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-              Product photo — <span className="text-amber-700">EASIEST: click &quot;Upload photo&quot; and pick the picture from your PC</span>
+              Primary Product photo — <span className="text-amber-700">EASIEST: click &quot;Upload photo&quot; and pick the picture from your PC</span>
               <div className="mt-1 flex gap-2">
                 <button
                   type="button"
@@ -333,7 +370,7 @@ export default function AdminProducts() {
                   }}
                 />
               </div>
-              <span className="mt-1.5 block text-[11px] text-slate-400 dark:text-slate-500">or paste an image link below — <b>JPG, PNG, WebP and Google Images / Google Photos links are supported</b> (images are fetched automatically so they display everywhere).</span>
+              <span className="mt-1.5 block text-[11px] text-slate-400 dark:text-slate-500">or paste an image link below — <b>JPG, PNG, WebP and Google Images / Google Photos links are supported</b>.</span>
               <input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://...jpg" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
               {isNonImageLink(form.image) && (
                 <span className="mt-1.5 block text-[11px] font-semibold text-red-600 dark:text-red-400">
@@ -341,14 +378,24 @@ export default function AdminProducts() {
                 </span>
               )}
             </label>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Secondary / Additional Image URLs (for card hover crossfade &amp; quick-view gallery)
+              <input value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} placeholder="https://...image2.jpg, https://...image3.jpg" className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
+            </label>
             {form.image ? (
               <img src={imgUrl(form.image)} alt="Preview" onError={fallbackImg} className="max-h-40 rounded-xl border border-slate-200 dark:border-slate-700" />
             ) : null}
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (fabric, fit, care...)" rows={2} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-              <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
-              Show in &quot;New Arrivals&quot; on homepage
-            </label>
+            <div className="flex items-center gap-4 py-1">
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
+                <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} className="rounded" />
+                Featured product
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold text-[#cc0000] cursor-pointer">
+                <input type="checkbox" checked={form.isNewArrival} onChange={(e) => setForm({ ...form, isNewArrival: e.target.checked })} className="rounded accent-[#cc0000]" />
+                Mark as New Arrival ✦
+              </label>
+            </div>
             <button disabled={saving} className="w-full bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-sm">
               {saving ? 'Saving...' : modal === 'add' ? 'Add Product' : 'Save Changes'}
             </button>

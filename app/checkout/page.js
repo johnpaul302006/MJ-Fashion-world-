@@ -62,6 +62,43 @@ function loadRazorpayScript() {
   })
 }
 
+/* ─── Animated Price Component ───────────────────── */
+function AnimatedPrice({ value }) {
+  const [displayValue, setDisplayValue] = useState(value)
+  const prevValueRef = useRef(value)
+
+  useEffect(() => {
+    if (prevValueRef.current === value) return
+
+    const startVal = prevValueRef.current
+    const endVal = value
+    prevValueRef.current = value
+
+    const startTime = performance.now()
+    const duration = 600
+
+    let animId
+    function update(now) {
+      const elapsed = now - startTime
+      const progress = Math.min(1, elapsed / duration)
+      const ease = 1 - Math.pow(1 - progress, 3)
+      const current = Math.round(startVal + (endVal - startVal) * ease)
+      setDisplayValue(current)
+
+      if (progress < 1) {
+        animId = requestAnimationFrame(update)
+      } else {
+        setDisplayValue(endVal)
+      }
+    }
+
+    animId = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(animId)
+  }, [value])
+
+  return <span className="tabular-nums transition-colors">{inr(displayValue)}</span>
+}
+
 /* ─── Coupon Section Component ───────────────────── */
 function CouponSection({ cartTotal, onApply, onRemove, applied }) {
   const [code, setCode] = useState('')
@@ -70,10 +107,11 @@ function CouponSection({ cartTotal, onApply, onRemove, applied }) {
   const inputRef = useRef(null)
 
   async function apply(e) {
-    e.preventDefault()
+    e?.preventDefault()
     const trimmed = code.trim().toUpperCase()
     if (!trimmed) return setError('Please enter a coupon code')
     if (applied?.code === trimmed) return setError('This coupon is already applied')
+    if (!cartTotal || cartTotal <= 0) return setError('Please add items to your bag first')
     setError('')
     setLoading(true)
     try {
@@ -101,19 +139,24 @@ function CouponSection({ cartTotal, onApply, onRemove, applied }) {
   }
 
   if (applied) {
+    const pct = applied.percentage || applied.discountPercent
     return (
-      <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/40 rounded-sm px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+      <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-sm px-4 py-3 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
           <CheckIcon />
           <div>
-            <p className="text-sm font-bold">Coupon <span className="font-mono tracking-wider">{applied.code}</span> applied</p>
-            <p className="text-xs mt-0.5 text-green-600 dark:text-green-500">{applied.discountPercent}% off — you save {inr(applied.discountAmount)}</p>
+            <p className="text-sm font-bold">
+              Coupon <span className="font-mono tracking-wider">{applied.code}</span> applied
+            </p>
+            <p className="text-xs mt-0.5 text-emerald-600 dark:text-emerald-500 font-medium">
+              {pct}% off — you save {inr(applied.discountAmount)}
+            </p>
           </div>
         </div>
         <button
           type="button"
           onClick={remove}
-          className="text-xs font-semibold text-red-500 hover:text-red-700 hover:underline shrink-0"
+          className="text-xs font-semibold text-rose-500 hover:text-rose-700 hover:underline shrink-0 cursor-pointer"
         >
           Remove
         </button>
@@ -135,7 +178,7 @@ function CouponSection({ cartTotal, onApply, onRemove, applied }) {
           <input
             ref={inputRef}
             value={code}
-            onChange={(e) => { setCode(e.target.value.toUpperCase()); setError('') }}
+            onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/\s+/g, '')); setError('') }}
             placeholder="Enter coupon code"
             className={`${inputCls} font-mono tracking-wider uppercase flex-1`}
             maxLength={30}
@@ -144,13 +187,13 @@ function CouponSection({ cartTotal, onApply, onRemove, applied }) {
             type="button"
             onClick={apply}
             disabled={loading}
-            className="shrink-0 bg-[#111] dark:bg-white text-white dark:text-[#111] font-bold px-5 py-2.5 text-sm tracking-wide hover:opacity-80 disabled:opacity-50 transition-opacity rounded-sm"
+            className="shrink-0 bg-[#111] dark:bg-white text-white dark:text-[#111] font-bold px-5 py-2.5 text-sm tracking-wide hover:opacity-80 disabled:opacity-50 transition-opacity rounded-sm cursor-pointer"
           >
             {loading ? '...' : 'Apply'}
           </button>
         </div>
         {error && (
-          <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">{error}</p>
+          <p className="mt-2 text-xs text-rose-600 dark:text-rose-400 font-semibold animate-in fade-in">{error}</p>
         )}
       </div>
     </div>
@@ -904,10 +947,10 @@ export default function CheckoutPage() {
                     ) : null}
 
                     {coupon && (
-                      <div className="flex justify-between text-green-600 dark:text-green-400 font-semibold">
-                        <span className="flex items-center gap-1">
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold animate-in fade-in slide-in-from-top-1">
+                        <span className="flex items-center gap-1.5 font-mono">
                           <TagIcon />
-                          Coupon ({coupon.discountPercent}% off)
+                          {coupon.code} (-{coupon.percentage || coupon.discountPercent}%)
                         </span>
                         <span>− {inr(couponDiscount)}</span>
                       </div>
@@ -915,7 +958,7 @@ export default function CheckoutPage() {
 
                     <div className="border-t border-gray-100 dark:border-[#222] pt-3 flex justify-between font-black text-gray-900 dark:text-white text-base">
                       <span>Total Amount</span>
-                      <span>{inr(total)}</span>
+                      <AnimatedPrice value={total} />
                     </div>
 
                     {(totalSaving > 0 || couponDiscount > 0) && (
@@ -935,8 +978,10 @@ export default function CheckoutPage() {
 
                   <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-3">
                     <button type="submit" disabled={placing}
-                      className="w-full bg-brand hover:bg-brand-dark disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-black py-4 text-sm tracking-widest uppercase transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed shadow-sm hover:shadow-md">
-                      {placing ? (method === 'upi' || method === 'cod' ? 'Placing Order…' : 'Opening secure payment…') : `Place Order · ${inr(total)}`}
+                      className="w-full bg-brand hover:bg-brand-dark disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-black py-4 text-sm tracking-widest uppercase transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed shadow-sm hover:shadow-md cursor-pointer">
+                      {placing ? (method === 'upi' || method === 'cod' ? 'Placing Order…' : 'Opening secure payment…') : (
+                        <span>Place Order · {inr(total)}</span>
+                      )}
                     </button>
                     <p className="text-[10px] text-gray-400 leading-relaxed">
                       {method === 'razorpay' || method === 'stripe'

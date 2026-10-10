@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { CATEGORIES } from '@/lib/categories'
 import { isNonImageLink } from '@/lib/img-url'
 
-const EMPTY = { name: '', price: '', mrp: '', stock: '10', image: '' }
+const EMPTY = { name: '', brand: '', price: '', mrp: '', stock: '10', image: '', isNewArrival: false }
 
 export function HostAddButton({ category }) {
   const { hosting } = useAuth()
@@ -31,9 +31,11 @@ export function HostAddButton({ category }) {
         body: JSON.stringify({
           ...form,
           name: form.name.trim(),
+          brand: form.brand ? form.brand.trim() : '',
           price: Number(form.price),
           mrp: Number(form.mrp) || Number(form.price),
           stock: Number(form.stock) >= 0 ? Number(form.stock) : 0,
+          isNewArrival: Boolean(form.isNewArrival),
         }),
       })
       const data = await res.json()
@@ -64,6 +66,7 @@ export function HostAddButton({ category }) {
               <button type="button" onClick={() => setOpen(false)} className="text-slate-400 text-xl">✕</button>
             </div>
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name *" className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
+            <input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Brand (e.g. Nike, Zara)" className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm outline-none" />
             {category ? (
               <p className="text-xs font-semibold text-slate-500">Section: {CATEGORIES.find((c) => c.slug === category)?.label || category}</p>
             ) : (
@@ -84,6 +87,10 @@ export function HostAddButton({ category }) {
                 ⚠ Instagram/social media links won&apos;t display as images. Save the photo to your PC and upload it from the Admin panel instead.
               </p>
             )}
+            <label className="flex items-center gap-2 text-xs font-semibold text-[#cc0000] cursor-pointer pt-1">
+              <input type="checkbox" checked={form.isNewArrival} onChange={(e) => setForm({ ...form, isNewArrival: e.target.checked })} className="rounded accent-[#cc0000]" />
+              Mark as New Arrival ✦
+            </label>
             <button disabled={busy} className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-2.5 rounded-lg text-sm">
               {busy ? 'Adding...' : 'Add Product'}
             </button>

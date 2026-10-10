@@ -3,49 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { inr, shortDate } from '@/lib/format'
+import Image from 'next/image'
+import { inr, shortDate, getReturnEligibility } from '@/lib/format'
 import { getStatusMeta } from '@/lib/categories'
 import { fallbackImg } from '@/lib/img-fallback'
 import { imgUrl } from '@/lib/img-url'
 import { useAuth } from '@/components/auth/AuthProvider'
-
-/* ─── Status stepper (pending → confirmed → shipped → delivered) ─── */
-const STEPS = ['pending', 'confirmed', 'shipped', 'delivered']
-
-function StatusStepper({ status }) {
-  const idx = STEPS.indexOf(status)
-  const rejected = status === 'rejected'
-  return (
-    <div className="flex items-center gap-1">
-      {STEPS.map((s, i) => {
-        const done = !rejected && i <= idx
-        return (
-          <div
-            key={s}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              rejected ? 'bg-red-200 dark:bg-red-900' : done ? 'bg-brand' : 'bg-gray-100 dark:bg-[#2a2a2a]'
-            }`}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
-function StepLabels({ status }) {
-  if (status === 'rejected') {
-    return (
-      <p className="mt-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 text-xs rounded-sm px-3 py-2">
-        This order was rejected by the store. If you paid online or via UPI, contact support for a refund.
-      </p>
-    )
-  }
-  return (
-    <div className="flex justify-between mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-      <span>Placed</span><span>Confirmed</span><span>Shipped</span><span>Delivered</span>
-    </div>
-  )
-}
+import OrderTrackingTimeline from '@/components/OrderTrackingTimeline'
+import ReturnExchangeModal from '@/components/ReturnExchangeModal'
 
 function PaymentBadge({ o }) {
   const label = { upi: 'UPI', cod: 'COD', razorpay: 'Razorpay', stripe: 'Stripe' }[o.paymentMethod] || o.paymentMethod
@@ -72,27 +37,43 @@ export default function OrderDetailPage() {
   const router = useRouter()
 
   const [order, setOrder] = useState(null)
+  const [returnRequests, setReturnRequests] = useState([])
   const [state, setState] = useState('loading') // loading | ok | notfound | error
   const [banner, setBanner] = useState('') // placed | paid | processing | unverified
   const [verifying, setVerifying] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState(null) // Product details modal
+  const [returnModalProduct, setReturnModalProduct] = useState(null) // Return modal
+
   const ranRef = useRef(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const res = await fetch(`/api/orders?orderId=${encodeURIComponent(String(orderId || ''))}`)
       const data = await res.json()
       if (res.ok && data.orders?.length > 0) {
         setOrder(data.orders[0])
-        setState('ok')
+        if (!silent) setState('ok')
       } else {
-        setState('notfound')
+        if (!silent) setState('notfound')
       }
     } catch {
-      setState('error')
+      if (!silent) setState('error')
     }
   }, [orderId])
 
-  // Initial load + Stripe redirect-back verification
+  const loadReturns = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/returns?orderId=${encodeURIComponent(String(orderId || ''))}`)
+      const data = await res.json()
+      if (res.ok && Array.isArray(data.requests)) {
+        setReturnRequests(data.requests)
+      }
+    } catch {
+      // Returns fetch error is non-blocking
+    }
+  }, [orderId])
+
+  // Initial load + Stripe redirect-back verification + live refresh
   useEffect(() => {
     if (authLoading) return
     if (!user) {
@@ -102,6 +83,13 @@ export default function OrderDetailPage() {
     if (ranRef.current) return
     ranRef.current = true
     load()
+    loadReturns()
+
+    // Real-time polling every 10s so host changes appear instantly
+    const interval = setInterval(() => {
+      load(true)
+      loadReturns()
+    }, 10000)
 
     let sessionId = ''
     const timers = []
@@ -117,8 +105,6 @@ export default function OrderDetailPage() {
     try {
       sessionId = new URLSearchParams(window.location.search).get('session_id') || ''
       if (sessionId) {
-        // Stripe redirect-back — confirm the session with the backend, then
-        // refresh the order so the paid status shows immediately.
         timers.push(
           setTimeout(() => {
             setVerifying(true)
@@ -141,7 +127,6 @@ export default function OrderDetailPage() {
               .catch(() => setBanner('unverified'))
               .finally(() => {
                 setVerifying(false)
-                // Clean the URL so refresh doesn't re-verify
                 window.history.replaceState({}, '', `/order/${orderId}`)
               })
           }, 0)
@@ -150,15 +135,19 @@ export default function OrderDetailPage() {
         window.history.replaceState({}, '', `/order/${orderId}`)
       }
     } catch {}
-    return () => timers.forEach(clearTimeout)
-  }, [authLoading, user, orderId, load, router])
+
+    return () => {
+      clearInterval(interval)
+      timers.forEach(clearTimeout)
+    }
+  }, [authLoading, user, orderId, load, loadReturns, router])
 
   /* ── Loading / gates ───────────────────────────── */
   if (authLoading || (state === 'loading' && !banner)) {
     return (
-      <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-sm text-gray-400 font-medium tracking-widest uppercase">
-          <div className={`w-6 h-6 border-2 border-gray-200 rounded-full animate-spin ${verifying ? 'border-t-brand' : ''}`} />
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-sm text-neutral-400 font-medium tracking-widest uppercase">
+          <div className={`w-6 h-6 border-2 border-neutral-700 rounded-full animate-spin ${verifying ? 'border-t-[#cc0000]' : ''}`} />
           {verifying ? 'Confirming your payment…' : 'Loading your order…'}
         </div>
       </div>
@@ -167,17 +156,17 @@ export default function OrderDetailPage() {
 
   if (state !== 'ok' || !order) {
     return (
-      <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] flex items-center justify-center px-4">
-        <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm p-12 max-w-md w-full text-center shadow-sm">
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-4">
+        <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-10 max-w-md w-full text-center shadow-xl">
           <p className="text-4xl mb-4">🔍</p>
-          <h1 className="text-xl font-black text-gray-900 dark:text-white mb-2">Order not found</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          <h1 className="text-xl font-black text-white mb-2">Order not found</h1>
+          <p className="text-sm text-neutral-400 mb-6">
             This order doesn&apos;t exist or doesn&apos;t belong to your account.
             {state === 'error' ? ' (Connection problem — try refreshing.)' : ''}
           </p>
           <Link
             href="/orders"
-            className="inline-block bg-brand hover:bg-brand-dark text-white font-bold px-8 py-3 text-sm tracking-wider uppercase transition-colors"
+            className="inline-block bg-[#cc0000] hover:bg-[#b30000] text-white font-bold px-8 py-3 rounded-xl text-xs tracking-wider uppercase transition"
           >
             Track an Order
           </Link>
@@ -190,23 +179,39 @@ export default function OrderDetailPage() {
   const itemCount = order.items.reduce((n, i) => n + i.qty, 0)
   const preCouponTotal = order.amount - (order.deliveryFee ?? 0) + (order.discountAmount || 0)
 
+  // 7-day return eligibility evaluation
+  const isDelivered = order.status === 'delivered'
+  const deliveryTime = order.deliveredAt || order.statusTimestamps?.delivered
+  const { isWithinWindow, returnDaysRemaining } = isDelivered
+    ? getReturnEligibility(deliveryTime)
+    : { isWithinWindow: true, returnDaysRemaining: 7 }
+
   return (
-    <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-[#0a0a0a] text-neutral-200 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
+
+        {/* ── Breadcrumb ─────────────────────────────── */}
+        <nav className="flex items-center gap-2 text-xs text-neutral-500 font-mono">
+          <Link href="/" className="hover:text-white transition">Home</Link>
+          <span>/</span>
+          <Link href="/orders" className="hover:text-white transition">My Orders</Link>
+          <span>/</span>
+          <span className="text-white font-bold">#{order.orderId}</span>
+        </nav>
 
         {/* ── Result banners ─────────────────────────── */}
         {(banner === 'placed' || banner === 'paid') && (
           <div
-            className={`mb-6 border p-5 rounded-sm ${
+            className={`border p-5 rounded-2xl ${
               banner === 'paid'
-                ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900/40'
-                : 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/40'
+                ? 'bg-green-950/40 border-green-800 text-green-300'
+                : 'bg-blue-950/40 border-blue-800 text-blue-300'
             }`}
           >
-            <p className="font-black text-lg text-gray-900 dark:text-white mb-1">
+            <p className="font-black text-lg text-white mb-1">
               {banner === 'paid' ? '🎉 Payment successful!' : '✅ Order placed!'}
             </p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-neutral-300">
               {banner === 'paid'
                 ? 'Your payment has been verified and your order is confirmed.'
                 : order.paymentMethod === 'cod'
@@ -216,178 +221,354 @@ export default function OrderDetailPage() {
           </div>
         )}
         {banner === 'processing' && (
-          <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 p-5 rounded-sm">
-            <p className="font-bold text-gray-900 dark:text-white">Payment is still processing…</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+          <div className="bg-amber-950/40 border border-amber-800 p-5 rounded-2xl text-amber-300">
+            <p className="font-bold text-white">Payment is still processing…</p>
+            <p className="text-sm text-neutral-300 mt-1">
               This usually settles within a few minutes — refresh this page to check again.
             </p>
           </div>
         )}
         {banner === 'unverified' && (
-          <div className="mb-6 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 p-5 rounded-sm">
-            <p className="font-bold text-gray-900 dark:text-white">We couldn&apos;t verify this payment yet</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+          <div className="bg-red-950/40 border border-red-800 p-5 rounded-2xl text-red-300">
+            <p className="font-bold text-white">We couldn&apos;t verify this payment yet</p>
+            <p className="text-sm text-neutral-300 mt-1">
               If money was deducted it usually settles automatically. Contact support with your Order ID if it stays unpaid.
             </p>
           </div>
         )}
 
-        {/* ── Header card ────────────────────────────── */}
-        <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm overflow-hidden shadow-sm">
-          <div className="px-5 sm:px-7 py-5 border-b border-gray-50 dark:border-[#222]">
-            <div className="flex items-start justify-between flex-wrap gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-gray-400 font-bold">Order</p>
-                <p className="text-xl font-black text-gray-900 dark:text-white font-mono">{order.orderId}</p>
-                <p className="text-xs text-gray-400 mt-1">Placed {shortDate(order.createdAt)} · {itemCount} item(s)</p>
+        {/* ── Order Header Card ───────────────────────── */}
+        <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-start justify-between flex-wrap gap-4 pb-5 border-b border-neutral-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase font-mono font-bold text-neutral-400">Order</span>
+                <span className="text-xl sm:text-2xl font-black text-white font-mono">#{order.orderId}</span>
               </div>
-              <div className="flex flex-col items-end gap-1.5">
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${sm.color}`}>{sm.label}</span>
-                <PaymentBadge o={order} />
-              </div>
+              <p className="text-xs text-neutral-400 mt-1">
+                Placed {shortDate(order.createdAt)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
+              </p>
             </div>
-            <div className="mt-5">
-              <StatusStepper status={order.status} />
-              <StepLabels status={order.status} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${sm.color}`}>
+                {sm.label}
+              </span>
+              <PaymentBadge o={order} />
             </div>
           </div>
 
-          {/* ── Items ──────────────────────────────────── */}
-          <div className="divide-y divide-gray-50 dark:divide-[#222]">
-            {order.items.map((i, idx) => (
-              <div key={idx} className="flex gap-4 px-5 sm:px-7 py-4">
+          <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+              <span className="text-neutral-500 block">Payment Method</span>
+              <span className="font-semibold text-white capitalize">{order.paymentMethod}</span>
+            </div>
+            <div>
+              <span className="text-neutral-500 block">Total Amount</span>
+              <span className="font-bold text-white">{inr(order.amount)}</span>
+            </div>
+            <div>
+              <span className="text-neutral-500 block">Delivery To</span>
+              <span className="font-semibold text-white truncate block">{order.customer?.city || 'India'}</span>
+            </div>
+            <div>
+              <span className="text-neutral-500 block">Return Window</span>
+              <span className={`font-semibold ${isDelivered && isWithinWindow ? 'text-emerald-400' : 'text-neutral-400'}`}>
+                {isDelivered
+                  ? isWithinWindow
+                    ? `${returnDaysRemaining} day${returnDaysRemaining !== 1 ? 's' : ''} left`
+                    : 'Window closed'
+                  : 'Active after delivery'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 1. Animated Tracking Timeline ───────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
+              Live Shipment Tracking
+            </h3>
+            <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Live Sync
+            </span>
+          </div>
+          <OrderTrackingTimeline order={order} />
+        </div>
+
+        {/* ── 2. Items & Return/Exchange Options ───────── */}
+        <div className="bg-[#141414] border border-neutral-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+            <h3 className="text-base font-bold text-white">
+              Order Items ({order.items.length})
+            </h3>
+            <span className="text-xs text-neutral-400">
+              Click any product to view details
+            </span>
+          </div>
+
+          <div className="divide-y divide-neutral-800/80">
+            {order.items.map((item, idx) => {
+              // Check if a return/exchange request exists for this product
+              const activeReq = returnRequests.find((r) => r.product?.name === item.name)
+
+              return (
                 <div
-                  className="shrink-0 w-16 rounded-sm overflow-hidden bg-gray-50 dark:bg-[#1a1a1a] border border-gray-100 dark:border-[#222]"
-                  style={{ aspectRatio: '3/4' }}
+                  key={idx}
+                  className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-neutral-900/40 transition"
                 >
-                  {i.image ? (
-                    <img src={imgUrl(i.image)} alt={i.name} onError={fallbackImg} className="w-full h-full object-cover" />
-                  ) : null}
+                  <div
+                    onClick={() => setSelectedProduct(item)}
+                    className="flex gap-4 cursor-pointer group flex-1 min-w-0"
+                  >
+                    <div
+                      className="shrink-0 w-16 sm:w-20 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 relative"
+                      style={{ aspectRatio: '3/4' }}
+                    >
+                      {item.image ? (
+                        <img
+                          src={imgUrl(item.image)}
+                          alt={item.name}
+                          onError={fallbackImg}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-bold text-white group-hover:text-[#cc0000] transition line-clamp-2">
+                        {item.name}
+                      </h4>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Size: <b className="text-neutral-200">{item.size || 'Standard'}</b> · Qty: <b className="text-neutral-200">{item.qty}</b>
+                      </p>
+                      <p className="text-sm font-black text-white mt-2">
+                        {inr(item.price * item.qty)}
+                        {item.qty > 1 && (
+                          <span className="text-[11px] font-normal text-neutral-400 ml-1.5">
+                            ({inr(item.price)} each)
+                          </span>
+                        )}
+                      </p>
+
+                      {/* Active Return Status Badge on Item */}
+                      {activeReq && (
+                        <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold border bg-neutral-900 border-neutral-700">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              activeReq.status === 'pending'
+                                ? 'bg-amber-400 animate-pulse'
+                                : activeReq.status === 'accepted'
+                                ? 'bg-emerald-400'
+                                : 'bg-rose-400'
+                            }`}
+                          />
+                          <span className="capitalize text-white">
+                            {activeReq.type} {activeReq.status}
+                          </span>
+                          <span className="text-[10px] text-neutral-400 font-mono">
+                            ({activeReq.requestId})
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Host Note if decision is made */}
+                      {activeReq?.hostNote && (
+                        <p className="mt-1.5 text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-lg border border-neutral-800">
+                          <span className="font-semibold text-white">Seller Instructions: </span>
+                          {activeReq.hostNote}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions column */}
+                  <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProduct(item)}
+                      className="px-3.5 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold transition cursor-pointer"
+                    >
+                      View Details
+                    </button>
+
+                    {/* Return / Exchange Button with 7-Day Logic */}
+                    {!activeReq ? (
+                      isDelivered ? (
+                        isWithinWindow ? (
+                          <button
+                            type="button"
+                            onClick={() => setReturnModalProduct(item)}
+                            className="px-3.5 py-2 rounded-lg border border-[#cc0000] text-[#cc0000] hover:bg-[#cc0000] hover:text-white text-xs font-bold transition cursor-pointer"
+                          >
+                            Return / Exchange
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            title="The 7-day return and exchange policy window has expired for this order."
+                            className="px-3.5 py-2 rounded-lg border border-neutral-800 text-neutral-600 text-xs font-medium cursor-not-allowed"
+                          >
+                            Return Expired
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Returns and Exchanges become active after your item is delivered."
+                          className="px-3.5 py-2 rounded-lg border border-neutral-800 text-neutral-600 text-xs font-medium cursor-not-allowed"
+                        >
+                          Return (After Delivery)
+                        </button>
+                      )
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 line-clamp-2">{i.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Size {i.size} · Qty {i.qty} · {inr(i.price)} each
-                  </p>
-                </div>
-                <p className="shrink-0 text-sm font-black text-gray-900 dark:text-white">{inr(i.price * i.qty)}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* ── Bill summary ───────────────────────────── */}
-          <div className="px-5 sm:px-7 py-4 bg-gray-50/60 dark:bg-[#161616] space-y-1.5 text-sm">
-            <div className="flex justify-between text-gray-500 dark:text-gray-400">
-              <span>Subtotal</span><span>{inr(preCouponTotal)}</span>
+          <div className="px-6 py-5 bg-neutral-950/70 border-t border-neutral-800 space-y-2 text-xs">
+            <div className="flex justify-between text-neutral-400">
+              <span>Subtotal</span>
+              <span className="text-white font-mono">{inr(preCouponTotal)}</span>
             </div>
-            {!!order.deliveryFee && (
-              <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                <span>Delivery</span><span>{inr(order.deliveryFee)}</span>
-              </div>
-            )}
-            {!order.deliveryFee && (
-              <div className="flex justify-between text-green-600 font-medium">
-                <span>Delivery</span><span>FREE</span>
-              </div>
-            )}
+            <div className="flex justify-between text-neutral-400">
+              <span>Delivery Fee</span>
+              <span className={order.deliveryFee ? 'text-white font-mono' : 'text-emerald-400 font-semibold'}>
+                {order.deliveryFee ? inr(order.deliveryFee) : 'FREE'}
+              </span>
+            </div>
             {!!order.couponCode && (
-              <div className="flex justify-between text-green-600 font-medium">
+              <div className="flex justify-between text-emerald-400 font-semibold">
                 <span>Coupon {order.couponCode} ({order.couponDiscount}% off)</span>
                 <span>− {inr(order.discountAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between font-black text-gray-900 dark:text-white pt-1.5 border-t border-gray-100 dark:border-[#222]">
-              <span>{order.paymentStatus === 'paid' ? 'Total Paid' : order.paymentMethod === 'cod' ? 'Payable on Delivery' : 'Total'}</span>
-              <span>{inr(order.amount)}</span>
-            </div>
-            {order.originalAmount > order.amount ? (
-              <p className="text-xs text-green-600 text-right">You saved {inr(order.originalAmount - order.amount)} on this order 🎉</p>
-            ) : null}
-          </div>
-
-          {/* ── Delivery address ───────────────────────── */}
-          <div className="px-5 sm:px-7 py-4 border-t border-gray-50 dark:border-[#222]">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Delivery Address</p>
-            <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-              <b>{order.customer.name}</b> · {order.customer.phone}
-              <br />
-              {order.customer.address}
-              <br />
-              {[order.customer.city, order.customer.state].filter(Boolean).join(', ')}
-              {order.customer.pincode ? ` — ${order.customer.pincode}` : ''}
-              <br />
-              {order.customer.country}
-            </p>
-          </div>
-
-          {/* ── Payment + Tracking ─────────────────────── */}
-          <div className="px-5 sm:px-7 py-4 border-t border-gray-50 dark:border-[#222] grid sm:grid-cols-2 gap-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Payment</p>
-              <p className="text-sm text-gray-700 dark:text-gray-200 capitalize">
-                {{ upi: 'Direct UPI transfer', cod: 'Cash on Delivery', razorpay: 'Razorpay', stripe: 'Stripe' }[order.paymentMethod] || order.paymentMethod}
-                {order.utr ? <span className="block text-xs text-gray-400 mt-1 font-mono break-all">UTR: {order.utr}</span> : null}
-                {order.payment?.provider && !['upi-manual', 'cod'].includes(order.payment.provider) ? (
-                  <span className="block text-xs text-gray-400 mt-1 capitalize">via {order.payment.provider}</span>
-                ) : null}
-                {order.payment?.paidAt ? (
-                  <span className="block text-xs text-green-600 mt-1">Paid on {shortDate(order.payment.paidAt)}</span>
-                ) : null}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tracking</p>
-              {order.tracking && (order.tracking.number || order.tracking.courier) ? (
-                <p className="text-sm text-gray-700 dark:text-gray-200">
-                  {order.tracking.courier || 'Courier'}
-                  {order.tracking.number ? (
-                    <>
-                      <br />AWB: <b className="font-mono">{order.tracking.number}</b>
-                    </>
-                  ) : null}
-                  {order.tracking.eta ? <span className="block text-xs text-gray-400 mt-1">ETA: {order.tracking.eta}</span> : null}
-                  {order.tracking.url ? (
-                    <a
-                      href={order.tracking.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-1 text-xs font-semibold text-brand hover:underline"
-                    >
-                      Track package ↗
-                    </a>
-                  ) : null}
-                </p>
-              ) : (
-                <p className="text-sm text-gray-400">Tracking details appear here once the order ships.</p>
-              )}
+            <div className="flex justify-between font-black text-sm text-white pt-2 border-t border-neutral-800">
+              <span>{order.paymentStatus === 'paid' ? 'Total Paid' : order.paymentMethod === 'cod' ? 'Payable on Delivery' : 'Total Payable'}</span>
+              <span className="text-[#cc0000] text-base">{inr(order.amount)}</span>
             </div>
           </div>
-
-          {/* ── Store note ─────────────────────────────── */}
-          {order.note ? (
-            <div className="px-5 sm:px-7 py-4 border-t border-gray-50 dark:border-[#222]">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Note from store</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{order.note}</p>
-            </div>
-          ) : null}
         </div>
 
-        {/* ── Actions ────────────────────────────────── */}
-        <div className="mt-6 flex flex-wrap gap-3 justify-center">
+        {/* ── Delivery address ───────────────────────── */}
+        <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-6 shadow-xl">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+            Delivery Destination
+          </h4>
+          <p className="text-sm text-neutral-200 leading-relaxed">
+            <b className="text-white">{order.customer.name}</b> · <span className="font-mono text-neutral-400">{order.customer.phone}</span>
+            <br />
+            {order.customer.address}
+            <br />
+            {[order.customer.city, order.customer.state].filter(Boolean).join(', ')}
+            {order.customer.pincode ? ` — ${order.customer.pincode}` : ''}
+          </p>
+        </div>
+
+        {/* ── Bottom action buttons ───────────────────── */}
+        <div className="flex flex-wrap gap-3 justify-center pt-2">
           <Link
             href="/orders"
-            className="border-2 border-gray-200 dark:border-[#333] hover:border-brand hover:text-brand text-gray-700 dark:text-gray-200 font-bold px-8 py-3 text-sm tracking-wider uppercase transition-colors"
+            className="px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold uppercase tracking-wider transition"
           >
-            Track Orders
+            All Orders
           </Link>
           <Link
             href="/shop"
-            className="bg-brand hover:bg-brand-dark text-white font-bold px-8 py-3 text-sm tracking-wider uppercase transition-colors"
+            className="px-6 py-2.5 rounded-xl bg-[#cc0000] hover:bg-[#b30000] text-white text-xs font-bold uppercase tracking-wider transition"
           >
             Continue Shopping
           </Link>
         </div>
       </div>
+
+      {/* ── Product Details Modal ────────────────────── */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-[#141414] border border-neutral-800 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+                  Order #{order.orderId}
+                </span>
+                <h3 className="text-base font-bold text-white">Product Item Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="relative w-24 h-32 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shrink-0">
+                {selectedProduct.image ? (
+                  <Image src={selectedProduct.image} alt={selectedProduct.name} fill sizes="96px" className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500">IMG</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5 text-xs">
+                <h4 className="text-sm font-bold text-white">{selectedProduct.name}</h4>
+                <p className="text-neutral-400">Size: <b className="text-white">{selectedProduct.size || 'Standard'}</b></p>
+                <p className="text-neutral-400">Quantity: <b className="text-white">{selectedProduct.qty}</b></p>
+                <p className="text-neutral-400">Unit Price: <b className="text-white">{inr(selectedProduct.price)}</b></p>
+                <p className="text-neutral-400">Item Total: <b className="text-[#cc0000]">{inr(selectedProduct.price * selectedProduct.qty)}</b></p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 space-y-1">
+              <p>• Placed on: <b className="text-white">{shortDate(order.createdAt)}</b></p>
+              <p>• Delivery Status: <b className="text-emerald-400 capitalize">{order.status}</b></p>
+              {order.couponCode && (
+                <p>• Applied Discount: <b className="text-green-400">{order.couponCode} ({order.couponDiscount}% OFF)</b></p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              {isDelivered && isWithinWindow && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReturnModalProduct(selectedProduct)
+                    setSelectedProduct(null)
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#cc0000] hover:bg-[#b30000] text-white text-xs font-bold transition cursor-pointer"
+                >
+                  Return or Exchange this item
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Return / Exchange Modal ──────────────────── */}
+      {returnModalProduct && (
+        <ReturnExchangeModal
+          order={order}
+          product={returnModalProduct}
+          onClose={() => setReturnModalProduct(null)}
+          onSuccess={() => {
+            loadReturns()
+          }}
+        />
+      )}
     </div>
   )
 }

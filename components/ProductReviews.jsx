@@ -97,15 +97,13 @@ export default function ProductReviews({ productId }) {
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState({ text: '', ok: false })
 
-  const load = useCallback(async () => {
+  const loadReviews = useCallback(async () => {
     try {
       const res = await fetch(`/api/products/${productId}/reviews`)
       const data = await res.json()
       setReviews(data.reviews || [])
       setAvg(data.avg || 0)
       setCount(data.count || 0)
-
-      // If user already reviewed, pre-fill the form
       if (data.reviews) {
         const own = data.reviews.find((r) => r.isOwn)
         if (own) {
@@ -121,16 +119,30 @@ export default function ProductReviews({ productId }) {
   }, [productId])
 
   useEffect(() => {
-    setReviews([])
-    setAvg(0)
-    setCount(0)
-    setLoading(true)
-    setShowForm(false)
-    setRating(0)
-    setFeedback('')
-    setMsg({ text: '', ok: false })
-    load()
-  }, [productId, load])
+    let cancelled = false
+    fetch(`/api/products/${productId}/reviews`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return
+        setReviews(data.reviews || [])
+        setAvg(data.avg || 0)
+        setCount(data.count || 0)
+        if (data.reviews) {
+          const own = data.reviews.find((r) => r.isOwn)
+          if (own) {
+            setRating(own.rating)
+            setFeedback(own.feedback || '')
+          }
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [productId])
 
   async function submit(e) {
     e.preventDefault()
@@ -154,7 +166,7 @@ export default function ProductReviews({ productId }) {
       if (!res.ok) throw new Error(data.error || 'Failed to submit review')
       setMsg({ text: 'Review submitted successfully!', ok: true })
       setShowForm(false)
-      await load()
+      await loadReviews()
     } catch (err) {
       setMsg({ text: err.message, ok: false })
     } finally {

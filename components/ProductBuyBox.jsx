@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { addToCart } from '@/lib/cart-client'
+import { isInWishlist, toggleWishlist as toggleWishlistAction } from '@/lib/wishlist-client'
 
 function BagIcon() {
   return (
@@ -10,6 +11,14 @@ function BagIcon() {
       <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
       <line x1="3" y1="6" x2="21" y2="6"/>
       <path d="M16 10a4 4 0 01-8 0"/>
+    </svg>
+  )
+}
+
+function HeartIcon({ filled }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
     </svg>
   )
 }
@@ -27,6 +36,17 @@ export default function ProductBuyBox({ product }) {
   const [size, setSize] = useState(product.sizes?.[0] || 'Free Size')
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
+  const [wishlisted, setWishlisted] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setWishlisted(isInWishlist(product._id)), 0)
+    const update = () => setWishlisted(isInWishlist(product._id))
+    window.addEventListener('wishlist-updated', update)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('wishlist-updated', update)
+    }
+  }, [product._id])
 
   const outOfStock = product.stock === 0
 
@@ -39,6 +59,11 @@ export default function ProductBuyBox({ product }) {
   function buyNow() {
     addToCart(product, size, qty)
     router.push('/checkout')
+  }
+
+  function toggleWish() {
+    const next = toggleWishlistAction(product)
+    setWishlisted(next)
   }
 
   return (
@@ -128,6 +153,19 @@ export default function ProductBuyBox({ product }) {
         >
           <BoltIcon />
           {outOfStock ? 'Out of Stock' : 'Buy Now · UPI'}
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleWish}
+          className={`w-full flex items-center justify-center gap-2 py-3 text-xs font-bold tracking-widest uppercase border-2 transition-all duration-200 ${
+            wishlisted
+              ? 'bg-red-50 dark:bg-red-950/30 border-brand text-brand'
+              : 'border-gray-200 dark:border-[#333] text-gray-700 dark:text-gray-300 hover:border-brand hover:text-brand'
+          }`}
+        >
+          <HeartIcon filled={wishlisted} />
+          {wishlisted ? 'Saved in Wishlist' : 'Add to Wishlist'}
         </button>
       </div>
     </div>

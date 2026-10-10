@@ -9,11 +9,15 @@ import AdminProducts from '@/components/admin/AdminProducts'
 import AdminOrders from '@/components/admin/AdminOrders'
 import AdminSettings from '@/components/admin/AdminSettings'
 import AdminBroadcast from '@/components/admin/AdminBroadcast'
+import AdminCoupons from '@/components/admin/AdminCoupons'
+import AdminReturns from '@/components/admin/AdminReturns'
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'products', label: 'Products' },
   { id: 'orders', label: 'Orders' },
+  { id: 'returns', label: '📦 Returns & Exchanges' },
+  { id: 'coupons', label: '🎟 Coupons' },
   { id: 'broadcast', label: 'Broadcast' },
   { id: 'settings', label: 'Settings' },
 ]
@@ -93,6 +97,8 @@ export default function AdminApp() {
       {tab === 'dashboard' ? <AdminDashboard goToOrders={() => setTab('orders')} goToProducts={() => setTab('products')} /> : null}
       {tab === 'products' ? <AdminProducts /> : null}
       {tab === 'orders' ? <AdminOrders /> : null}
+      {tab === 'returns' ? <AdminReturns /> : null}
+      {tab === 'coupons' ? <AdminCoupons /> : null}
       {tab === 'broadcast' ? <AdminBroadcast /> : null}
       {tab === 'settings' ? <AdminSettings /> : null}
     </div>

@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CATEGORIES } from '@/lib/categories'
 import { cartCount } from '@/lib/cart-client'
+import { wishlistCount } from '@/lib/wishlist-client'
 import { useAuth } from '@/components/auth/AuthProvider'
+import AccountMenu from '@/components/AccountMenu'
+import NotificationBell from '@/components/NotificationBell'
 
 /* ─── SVG Icons ──────────────────────────────────────────── */
 function SearchIcon() {
@@ -92,9 +95,12 @@ function ShieldIcon() {
 }
 
 export default function Navbar({ storeName, user }) {
-  const { logout, hosting } = useAuth()
+  const { logout, hosting, user: authUser } = useAuth()
+  const currentUser = user || authUser
   const [q, setQ] = useState('')
   const [count, setCount] = useState(0)
+  const [wishCount, setWishCount] = useState(0)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [dark, setDark] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -111,13 +117,17 @@ export default function Navbar({ storeName, user }) {
     if (!applyDark && isDark) html.classList.remove('dark')
     const t = setTimeout(() => setDark(applyDark), 0)
     const update = () => setCount(cartCount())
+    const updateWish = () => setWishCount(wishlistCount())
     update()
+    updateWish()
     window.addEventListener('cart-updated', update)
+    window.addEventListener('wishlist-updated', updateWish)
     const onScroll = () => setScrolled(window.scrollY > 4)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       clearTimeout(t)
       window.removeEventListener('cart-updated', update)
+      window.removeEventListener('wishlist-updated', updateWish)
       window.removeEventListener('scroll', onScroll)
     }
   }, [])
@@ -158,9 +168,9 @@ export default function Navbar({ storeName, user }) {
           {/* Right — utility links */}
           <div className="flex items-center gap-1 ml-auto shrink-0">
             {/* User badge */}
-            {user?.email ? (
+            {currentUser?.email ? (
               <span className="hidden lg:flex items-center gap-1.5 text-gray-400 truncate max-w-[200px] mr-1 text-[11px]">
-                <span className="truncate">{user.email}</span>
+                <span className="truncate">{currentUser.email}</span>
                 {hosting && (
                   <span className="ml-0.5 bg-amber-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded-sm tracking-wider">
                     HOST
@@ -182,7 +192,7 @@ export default function Navbar({ storeName, user }) {
 
             {/* Track Order */}
             <Link
-              href="/orders"
+              href="/track-order"
               className="flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors hidden md:flex text-[11px]"
             >
               <PackageIcon />
@@ -202,13 +212,22 @@ export default function Navbar({ storeName, user }) {
             <span className="hidden md:block w-px h-4 bg-[#333] mx-1" />
 
             {/* Logout — single, canonical button */}
-            <button
-              onClick={onLogout}
-              className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-red-400 hover:bg-white/5 transition-colors text-[11px]"
-            >
-              <LogoutIcon />
-              <span>Logout</span>
-            </button>
+            {currentUser ? (
+              <button
+                onClick={onLogout}
+                className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-red-400 hover:bg-white/5 transition-colors text-[11px]"
+              >
+                <LogoutIcon />
+                <span>Logout</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-[11px]"
+              >
+                <span>Login</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -256,31 +275,52 @@ export default function Navbar({ storeName, user }) {
 
             {/* Mobile search toggle */}
             <button
-              onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }}
+              onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false); setAccountOpen(false) }}
               className="md:hidden p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors"
               aria-label="Search"
             >
               <SearchIcon />
             </button>
 
-            {/* Account */}
-            <Link
-              href={hosting ? '/admin' : '/orders'}
-              className="p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors flex-col items-center hidden sm:flex"
-              title={user?.email || 'Account'}
-            >
-              <UserIcon />
-              <span className="text-[9px] font-medium mt-0.5 hidden lg:block text-gray-500">Account</span>
-            </Link>
+            {/* Real-time Coupon Notifications */}
+            <NotificationBell />
 
-            {/* Wishlist (UI visual) */}
-            <button
-              className="p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors flex-col items-center hidden sm:flex"
-              title="Wishlist"
+            {/* Account (with dropdown / side menu) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountOpen((prev) => !prev)
+                  setMenuOpen(false)
+                  setSearchOpen(false)
+                }}
+                className={`p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors flex flex-col items-center ${
+                  accountOpen ? 'text-brand dark:text-brand bg-gray-100 dark:bg-[#222]' : ''
+                }`}
+                title={currentUser?.email || 'Your Account'}
+                aria-haspopup="dialog"
+                aria-expanded={accountOpen}
+              >
+                <UserIcon />
+                <span className="text-[9px] font-medium mt-0.5 hidden lg:block text-gray-500">Account</span>
+              </button>
+              <AccountMenu isOpen={accountOpen} onClose={() => setAccountOpen(false)} />
+            </div>
+
+            {/* Wishlist */}
+            <Link
+              href="/wishlist"
+              className="relative p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors flex flex-col items-center"
+              title={`Wishlist (${wishCount})`}
             >
               <HeartIcon />
+              {wishCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-brand text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none shadow-xs">
+                  {wishCount}
+                </span>
+              )}
               <span className="text-[9px] font-medium mt-0.5 hidden lg:block text-gray-500">Wishlist</span>
-            </button>
+            </Link>
 
             {/* Cart */}
             <Link
@@ -290,7 +330,7 @@ export default function Navbar({ storeName, user }) {
             >
               <CartIcon />
               {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-brand text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                <span className="absolute -top-0.5 -right-0.5 bg-brand text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none shadow-xs">
                   {count}
                 </span>
               )}
@@ -299,7 +339,7 @@ export default function Navbar({ storeName, user }) {
 
             {/* Hamburger */}
             <button
-              onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }}
+              onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false); setAccountOpen(false) }}
               className="md:hidden p-2 rounded-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors"
               aria-label="Menu"
             >
@@ -333,6 +373,13 @@ export default function Navbar({ storeName, user }) {
       <nav className="hidden md:block border-b border-gray-100 dark:border-[#1e1e1e] bg-white dark:bg-[#111]">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
+            <Link
+              href="/new-arrivals"
+              className="nav-link flex items-center gap-1.5 py-3 px-1 mr-5 text-[#cc0000] font-black tracking-wide text-xs uppercase hover:opacity-85 transition shrink-0"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#cc0000] animate-pulse" />
+              <span>New Arrivals</span>
+            </Link>
             {CATEGORIES.map((c) => (
               <div key={c.slug} className="mega-trigger relative">
                 <Link
@@ -358,27 +405,96 @@ export default function Navbar({ storeName, user }) {
         <nav className="md:hidden border-t border-gray-100 dark:border-[#222] bg-white dark:bg-[#111] slide-down">
           <div className="py-1">
             {/* User info */}
-            {user?.email && (
+            {currentUser?.email ? (
               <div className="px-4 py-3 border-b border-gray-100 dark:border-[#222] bg-gray-50 dark:bg-[#1a1a1a]">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                <p className="text-xs font-bold text-gray-900 dark:text-white">{currentUser.name || 'Customer'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser.email}</p>
                 {hosting && (
                   <p className="text-[11px] font-bold text-amber-600 mt-0.5 uppercase tracking-wider">
                     Host Mode
                   </p>
                 )}
               </div>
+            ) : (
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-[#222] bg-gray-50 dark:bg-[#1a1a1a] flex gap-2">
+                <Link
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 bg-brand text-white text-xs font-bold py-2 rounded-sm text-center uppercase tracking-wider"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 text-xs font-bold py-2 rounded-sm text-center uppercase tracking-wider"
+                >
+                  Register
+                </Link>
+              </div>
             )}
+
+            {currentUser && (
+              <Link
+                href="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
+              >
+                <UserIcon />
+                <span>My Profile</span>
+              </Link>
+            )}
+
+            <Link
+              href="/orders"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
+            >
+              <PackageIcon />
+              <span>My Orders</span>
+            </Link>
+
+            <Link
+              href="/wishlist"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <HeartIcon />
+                <span>Wishlist</span>
+              </div>
+              {wishCount > 0 && (
+                <span className="bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {wishCount}
+                </span>
+              )}
+            </Link>
 
             {hosting && (
               <Link
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-3.5 text-sm font-semibold text-amber-600 dark:text-amber-400 border-b border-gray-100 dark:border-[#222] hover:bg-amber-50 dark:hover:bg-[#1e1a00] transition-colors"
+                className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400 border-b border-gray-100 dark:border-[#222] hover:bg-amber-50 dark:hover:bg-[#1e1a00] transition-colors"
               >
                 <ShieldIcon />
-                Host Panel
+                <span>Host Panel</span>
               </Link>
             )}
+
+            {/* New Arrivals */}
+            <Link
+              href="/new-arrivals"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between px-4 py-3 text-sm font-bold text-[#cc0000] border-b border-gray-100 dark:border-[#222] hover:bg-red-50 dark:hover:bg-[#1a0a0a] transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#cc0000] animate-pulse" />
+                <span>New Arrivals</span>
+              </div>
+              <span className="text-[10px] font-black bg-[#cc0000] text-white px-2 py-0.5 rounded tracking-wider uppercase">
+                NEW
+              </span>
+            </Link>
 
             {/* Categories */}
             {CATEGORIES.map((c) => (
@@ -386,7 +502,7 @@ export default function Navbar({ storeName, user }) {
                 key={c.slug}
                 href={`/shop?category=${c.slug}`}
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors"
               >
                 <span>{c.label}</span>
               </Link>
@@ -395,7 +511,7 @@ export default function Navbar({ storeName, user }) {
             <Link
               href="/shop?onSale=1"
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3.5 text-sm font-bold text-brand border-b border-gray-100 dark:border-[#222] hover:bg-red-50 dark:hover:bg-[#1a0a0a] transition-colors"
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-bold text-brand border-b border-gray-100 dark:border-[#222] hover:bg-red-50 dark:hover:bg-[#1a0a0a] transition-colors"
             >
               Sale
             </Link>
@@ -403,28 +519,30 @@ export default function Navbar({ storeName, user }) {
             <Link
               href="/shop"
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3.5 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
             >
               All Products
             </Link>
 
             <Link
-              href="/orders"
+              href="/track-order"
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3.5 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-brand border-b border-gray-100 dark:border-[#222] hover:bg-red-50 dark:hover:bg-[#1a0a0a]"
             >
               <PackageIcon />
-              Track Order
+              <span>Track Order by Phone</span>
             </Link>
 
-            {/* Single logout — mobile */}
-            <button
-              onClick={() => { onLogout(); setMenuOpen(false) }}
-              className="w-full text-left flex items-center gap-2.5 px-4 py-3.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-[#1a0a0a] transition-colors"
-            >
-              <LogoutIcon />
-              Logout
-            </button>
+            {/* Logout / Login — mobile */}
+            {currentUser ? (
+              <button
+                onClick={() => { onLogout(); setMenuOpen(false) }}
+                className="w-full text-left flex items-center gap-2.5 px-4 py-3.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-[#1a0a0a] transition-colors"
+              >
+                <LogoutIcon />
+                Logout
+              </button>
+            ) : null}
           </div>
         </nav>
       )}

@@ -50,14 +50,16 @@ export default function AdminOrders() {
   }
 
   const NEXT_STEP = {
-    pending: { status: 'confirmed', label: 'Confirm', confirm: 'Confirm this order? Payment is verified.' },
-    confirmed: { status: 'shipped', label: 'Mark Shipped', confirm: 'Mark this order as shipped?' },
-    shipped: { status: 'delivered', label: 'Mark Delivered', confirm: 'Mark this order as delivered?' },
+    pending: { status: 'confirmed', label: 'Confirm Order', confirm: 'Confirm this order? Payment is verified.' },
+    confirmed: { status: 'packed', label: 'Mark Packed', confirm: 'Mark this order as packed & quality checked?' },
+    packed: { status: 'shipped', label: 'Mark Shipped', confirm: 'Mark this order as handed to courier / shipped?' },
+    shipped: { status: 'out_for_delivery', label: 'Out for Delivery', confirm: 'Mark this order as out for delivery?' },
+    out_for_delivery: { status: 'delivered', label: 'Mark Delivered', confirm: 'Mark this order as delivered?' },
   }
 
   async function goNext(o) {
     const step = NEXT_STEP[o.status]
-    if (!step || o.status === 'pending' && o.paymentMethod === 'upi') return
+    if (!step || (o.status === 'pending' && o.paymentMethod === 'upi')) return
     if (!confirm(step.confirm)) return
     await update(o._id, { status: step.status })
   }
@@ -75,10 +77,11 @@ export default function AdminOrders() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tracking: {
-          courier: t.courier || '',
-          number: t.number || '',
-          url: t.url || '',
-          eta: t.eta || '',
+          courier: t.courier ?? '',
+          number: t.number ?? '',
+          url: t.url ?? '',
+          eta: t.eta ?? '',
+          currentLocation: t.currentLocation ?? '',
         },
       }),
     })
@@ -188,11 +191,21 @@ export default function AdminOrders() {
                     </button>
                   ) : null}
                   {o.status === 'confirmed' ? (
+                    <button onClick={() => update(o._id, { status: 'packed' })} className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-lg">
+                      Mark Packed
+                    </button>
+                  ) : null}
+                  {o.status === 'packed' ? (
                     <button onClick={() => update(o._id, { status: 'shipped' })} className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-lg flex items-center gap-1.5">
                       <TruckIcon /> Mark Shipped
                     </button>
                   ) : null}
                   {o.status === 'shipped' ? (
+                    <button onClick={() => update(o._id, { status: 'out_for_delivery' })} className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-4 py-2 rounded-lg flex items-center gap-1.5">
+                      🚚 Out for Delivery
+                    </button>
+                  ) : null}
+                  {o.status === 'out_for_delivery' ? (
                     <button onClick={() => update(o._id, { status: 'delivered' })} className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg">
                       Mark Delivered
                     </button>
@@ -248,6 +261,14 @@ export default function AdminOrders() {
                     <span className="font-normal text-[10px] text-violet-500">(only you can update — customer sees it on Track Order)</span>
                   </p>
                   <div className="grid sm:grid-cols-2 gap-2">
+                    <div className="sm:col-span-2">
+                      <input
+                        value={trackDraft[o._id]?.currentLocation ?? o.tracking?.currentLocation ?? ''}
+                        onChange={(e) => setTrackDraft({ ...trackDraft, [o._id]: { ...(trackDraft[o._id] ?? {}), currentLocation: e.target.value } })}
+                        placeholder="Current Location / Status (e.g. Departed Mumbai Hub · In transit to Delhi)"
+                        className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500"
+                      />
+                    </div>
                     <input
                       value={trackDraft[o._id]?.courier ?? o.tracking?.courier ?? ''}
                       onChange={(e) => setTrackDraft({ ...trackDraft, [o._id]: { ...(trackDraft[o._id] ?? {}), courier: e.target.value } })}

@@ -1,25 +1,9 @@
 import { getProducts } from '@/lib/data'
 import { CATEGORIES, CATEGORY_LABEL } from '@/lib/categories'
-import ProductCard from '@/components/ProductCard'
 import SortDropdown from '@/components/SortDropdown'
 import { HostAddButton } from '@/components/HostProductActions'
+import ShopContent from '@/components/ShopContent'
 import Link from 'next/link'
-
-/* ── Filter chip component ────────────────────── */
-function FilterChip({ href, active, children }) {
-  return (
-    <Link
-      href={href}
-      className={`inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-sm border transition-all duration-150 whitespace-nowrap ${
-        active
-          ? 'bg-[#111] dark:bg-white text-white dark:text-[#111] border-[#111] dark:border-white'
-          : 'bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#333] hover:border-gray-400 dark:hover:border-gray-500'
-      }`}
-    >
-      {children}
-    </Link>
-  )
-}
 
 export default async function ShopPage({ searchParams }) {
   const { category, q, size, sort, onSale } = await searchParams
@@ -51,7 +35,6 @@ export default async function ShopPage({ searchParams }) {
 
   return (
     <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f]">
-
       {/* ── Breadcrumb ───────────────────── */}
       <div className="bg-white dark:bg-[#111] border-b border-gray-100 dark:border-[#222]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5">
@@ -73,65 +56,27 @@ export default async function ShopPage({ searchParams }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* Header row */}
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">{title}</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Explore our premium streetwear, oversized essentials, and signature silhouettes.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <HostAddButton category={category} />
+            <SortDropdown />
+          </div>
+        </div>
 
-            {/* Header row */}
-            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">{title}</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {products.length} product{products.length !== 1 ? 's' : ''}
-                  {CATEGORY_LABEL[category] ? ` in ${CATEGORY_LABEL[category]}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <HostAddButton category={category} />
-                <SortDropdown />
-              </div>
-            </div>
-
-            {/* Active filters strip */}
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <FilterChip href="/shop" active={!category && !onSale && !q}>All</FilterChip>
-              {CATEGORIES.map((c) => (
-                <FilterChip
-                  key={c.slug}
-                  href={`/shop?category=${c.slug}${onSale ? '&onSale=1' : ''}`}
-                  active={category === c.slug}
-                >
-                  {c.label}
-                </FilterChip>
-              ))}
-              <FilterChip href={`/shop${category ? `?category=${category}&` : '?'}onSale=1`} active={!!onSale}>
-                Sale
-              </FilterChip>
-            </div>
-
-            {/* Grid or empty */}
-            {products.length === 0 ? (
-              <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-[#222] rounded-sm p-16 text-center">
-                <div className="flex items-center justify-center mb-4">
-                  <svg className="w-12 h-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-                  </svg>
-                </div>
-                <p className="font-bold text-gray-800 dark:text-gray-200 text-lg mb-1">No products found</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  Try a different category or search term.
-                </p>
-                <Link
-                  href="/shop"
-                  className="inline-flex items-center gap-2 bg-[#111] dark:bg-white text-white dark:text-[#111] font-bold px-6 py-2.5 text-sm tracking-wider uppercase hover:opacity-80 transition-opacity"
-                >
-                  View All Products
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                {products.map((p) => (
-                  <ProductCard key={p._id} product={p} />
-                ))}
-              </div>
-            )}
+        {/* Interactive Shop Content with Live Smart Search & Animated GSAP Flip Grid */}
+        <ShopContent
+          initialProducts={products}
+          activeCategory={category}
+          initialQuery={q || ''}
+          onSale={onSale === '1' || onSale === 'true'}
+        />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import SiteShell from "@/components/SiteShell";
+import SmoothScroll from "@/components/SmoothScroll";
 import DevPerfPatch from "@/components/DevPerfPatch";
 import { getSettings } from "@/lib/data";
 
@@ -23,9 +24,11 @@ export default async function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <DevPerfPatch />
-        <SiteShell storeName={settings.storeName} address={settings.address} phone={settings.phone}>
-          {children}
-        </SiteShell>
+        <SmoothScroll>
+          <SiteShell storeName={settings.storeName} address={settings.address} phone={settings.phone}>
+            {children}
+          </SiteShell>
+        </SmoothScroll>
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`

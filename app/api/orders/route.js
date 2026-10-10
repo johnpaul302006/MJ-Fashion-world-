@@ -31,6 +31,7 @@ function customerSafe(order) {
     deliveryFee: order.deliveryFee ?? 0,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount || 0,
+    percentage: order.percentage || order.couponDiscount || 0,
     discountAmount: order.discountAmount || 0,
     status: order.status,
     note: order.note,
@@ -49,12 +50,67 @@ function customerSafe(order) {
       state: order.customer?.state || '',
       pincode: order.customer?.pincode || '',
     },
+    deliveredAt: order.deliveredAt || null,
+    statusTimestamps: order.statusTimestamps || null,
     tracking: order.tracking
       ? {
           courier: order.tracking.courier || '',
           number: order.tracking.number || '',
           url: order.tracking.url || '',
           eta: order.tracking.eta || '',
+          currentLocation: order.tracking.currentLocation || '',
+          updatedAt: order.tracking.updatedAt || null,
+        }
+      : null,
+    shipment: order.shipment?.awb
+      ? {
+          provider: order.shipment.provider || '',
+          awb: order.shipment.awb || '',
+          courier: order.shipment.courier || '',
+          status: order.shipment.status || '',
+          trackingUrl: order.shipment.trackingUrl || '',
+        }
+      : null,
+  }
+}
+
+// Projection for tracking orders by phone number or orderId when user is not full owner or guest
+function trackSafe(order) {
+  const rawPhone = order.customer?.phone || ''
+  const maskedPhone = rawPhone.length >= 4 ? '••••••' + rawPhone.slice(-4) : rawPhone
+  return {
+    _id: String(order._id),
+    orderId: order.orderId,
+    createdAt: order.createdAt,
+    items: (order.items || []).map((i) => ({
+      name: i.name,
+      image: i.image,
+      size: i.size,
+      qty: i.qty,
+      price: i.price,
+      mrp: i.mrp,
+    })),
+    amount: order.amount,
+    status: order.status,
+    deliveryFee: order.deliveryFee ?? 0,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    customer: {
+      name: order.customer?.name || '',
+      phone: maskedPhone,
+      city: order.customer?.city || '',
+      state: order.customer?.state || '',
+      pincode: order.customer?.pincode ? '•••' + String(order.customer.pincode).slice(-3) : '',
+    },
+    deliveredAt: order.deliveredAt || null,
+    statusTimestamps: order.statusTimestamps || null,
+    tracking: order.tracking
+      ? {
+          courier: order.tracking.courier || '',
+          number: order.tracking.number || '',
+          url: order.tracking.url || '',
+          eta: order.tracking.eta || '',
+          currentLocation: order.tracking.currentLocation || '',
           updatedAt: order.tracking.updatedAt || null,
         }
       : null,
@@ -73,25 +129,40 @@ function customerSafe(order) {
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
 
-  // ── Auth: resolve the current user ───────────────────────────
-  const user = await getUser()
+  if (!dbConfigured) return NextResponse.json({ orders: [], count: 0 })
+  const conn = await connectDb()
+  if (!conn) return NextResponse.json({ orders: [], count: 0 })
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const rawPhone = (searchParams.get('phone') || '').trim()
+  const rawOrderId = (searchParams.get('orderId') || '').trim()
+  const rawQuery = (searchParams.get('q') || searchParams.get('query') || '').trim()
+
+  let phone = rawPhone
+  let orderId = rawOrderId
+
+  if (rawQuery) {
+    const digitsOnly = rawQuery.replace(/[^0-9]/g, '')
+    if (digitsOnly.length >= 10 && digitsOnly.length <= 12) {
+      phone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly
+    } else {
+      orderId = rawQuery
+    }
   }
 
-  if (!dbConfigured) return NextResponse.json({ orders: [] })
-  const conn = await connectDb()
-  if (!conn) return NextResponse.json({ orders: [] })
+  // Normalize phone if supplied
+  if (phone) {
+    const digits = phone.replace(/[^0-9]/g, '')
+    phone = digits.length > 10 ? digits.slice(-10) : digits
+  }
+
+  // ── Auth: resolve the current user (if any) ───────────────────
+  const user = await getUser()
 
   // ══════════════════════════════════════════════════════════════
-  // HOST / ADMIN — full access to all orders with optional filters
+  // 1. HOST / ADMIN — full access to all orders with optional filters
   // ══════════════════════════════════════════════════════════════
-  if (user.role === 'host') {
-    const phone = (searchParams.get('phone') || '').trim()
-    const orderId = (searchParams.get('orderId') || '').trim()
+  if (user && user.role === 'host') {
     const status = (searchParams.get('status') || '').trim()
-
     let query = {}
 
     if (orderId) {
@@ -109,47 +180,104 @@ export async function GET(request) {
     }
 
     const orders = await Order.find(query).sort({ createdAt: -1 }).limit(500).lean()
-    return NextResponse.json({ orders })
+    return NextResponse.json({ orders, count: orders.length })
+  }
+
+  // Helper to determine customer ownership projection
+  const projectOrder = (doc) => {
+    if (!doc) return null
+    if (user && (
+      (user.id && doc.userId && String(doc.userId) === String(user.id)) ||
+      (user.email && doc.customerEmail && doc.customerEmail.toLowerCase() === user.email.toLowerCase())
+    )) {
+      return customerSafe(doc)
+    }
+    return trackSafe(doc)
   }
 
   // ══════════════════════════════════════════════════════════════
-  // CUSTOMER
+  // 2. TRACK ORDER BY PHONE NUMBER
   // ══════════════════════════════════════════════════════════════
-  const orderId = (searchParams.get('orderId') || '').trim()
+  if (phone) {
+    if (!/^[0-9]{10}$/.test(phone)) {
+      return NextResponse.json(
+        { error: 'Please enter a valid 10-digit mobile number', orders: [], count: 0 },
+        { status: 400 }
+      )
+    }
 
-  if (!orderId) {
-    // ── Order history — every order belonging to this user only ──
-    const email = (user.email || '').toLowerCase()
-    const query = email
-      ? { $or: [{ userId: user.id || undefined }, { customerEmail: email }] }
-      : {}
-    if (!email && !user.id) return NextResponse.json({ orders: [] })
-    const docs = await Order.find(query).sort({ createdAt: -1 }).limit(100)
-    return NextResponse.json({ orders: docs.map(customerSafe) })
+    // Security requirement: users must be signed in to access orders by phone
+    if (!user) {
+      return NextResponse.json(
+        {
+          error: 'Please sign in to your account to view order details for this mobile number.',
+          requiresAuth: true,
+          orders: [],
+          count: 0,
+        },
+        { status: 401 }
+      )
+    }
+
+    // If customer is signed in, ensure the queried phone matches their verified account's phone
+    if (user.role !== 'host') {
+      const userDigits = user.phone ? user.phone.replace(/[^0-9]/g, '').slice(-10) : ''
+      if (userDigits && userDigits !== phone) {
+        return NextResponse.json(
+          {
+            error: `Security Verification: You are signed in as ${user.email}. You can only look up orders registered under your verified phone number (+91 ${user.phone}).`,
+            orders: [],
+            count: 0,
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    const docs = await Order.find({ 'customer.phone': phone })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+
+    const projected = docs.map(projectOrder)
+    return NextResponse.json({
+      orders: projected,
+      count: projected.length,
+      number: phone,
+    })
   }
 
-  // ── Single-order lookup (Track Order) with ownership check ──
-  const order = await Order.findOne({ orderId: orderId.toUpperCase() }).lean()
-
-  if (!order) {
-    return NextResponse.json({ orders: [] })
+  // ══════════════════════════════════════════════════════════════
+  // 3. TRACK ORDER BY ORDER ID
+  // ══════════════════════════════════════════════════════════════
+  if (orderId) {
+    const doc = await Order.findOne({ orderId: orderId.toUpperCase() }).lean()
+    if (!doc) {
+      return NextResponse.json({ orders: [], count: 0, orderId })
+    }
+    const projected = [projectOrder(doc)]
+    return NextResponse.json({
+      orders: projected,
+      count: 1,
+      orderId: doc.orderId,
+    })
   }
 
-  const sessionEmail = user.email?.toLowerCase?.() || ''
-  const orderEmail = (order.customerEmail || '').toLowerCase()
-  const ownsByUser =
-    user.id && order.userId && String(order.userId) === String(user.id)
-  const emailMatches = orderEmail && orderEmail === sessionEmail
-  const orderPhone = order.customer?.phone || ''
-  const phoneParam = (searchParams.get('phone') || '').trim()
-  const phoneMatches = phoneParam && phoneParam === orderPhone && /^[0-9]{10}$/.test(phoneParam)
-
-  if (!ownsByUser && !emailMatches && !phoneMatches) {
-    // Order exists but doesn't belong to this customer — leak nothing
-    return NextResponse.json({ orders: [] })
+  // ══════════════════════════════════════════════════════════════
+  // 4. CUSTOMER ORDER HISTORY (Requires logged in user)
+  // ══════════════════════════════════════════════════════════════
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  return NextResponse.json({ orders: [customerSafe(order)] })
+  const email = (user.email || '').toLowerCase()
+  const query = email
+    ? { $or: [{ userId: user.id || undefined }, { customerEmail: email }] }
+    : {}
+  if (!email && !user.id) return NextResponse.json({ orders: [], count: 0 })
+
+  const docs = await Order.find(query).sort({ createdAt: -1 }).limit(100).lean()
+  return NextResponse.json({ orders: docs.map(customerSafe), count: docs.length })
 }
 
 export async function POST(request) {
@@ -286,17 +414,31 @@ export async function POST(request) {
     // ── Coupon re-validation (backend authority) ──────────────
     let couponCode = ''
     let couponDiscount = 0
+    let percentage = 0
     let discountAmount = 0
     if (couponCodeRaw) {
+      const now = new Date()
       const coupon = await Coupon.findOne({ code: couponCodeRaw, isActive: true }).lean()
-      if (coupon) {
-        couponCode = coupon.code
-        couponDiscount = coupon.discountPercent
-        discountAmount = Math.min(Math.floor((rawTotal * couponDiscount) / 100), rawTotal)
+      if (!coupon) {
+        throw new Error('The applied coupon is invalid or inactive')
       }
+      if (coupon.startsAt && new Date(coupon.startsAt) > now) {
+        throw new Error('The applied coupon has not started yet')
+      }
+      if (coupon.expiresAt && new Date(coupon.expiresAt) < now) {
+        throw new Error('The applied coupon has expired')
+      }
+      couponCode = coupon.code
+      percentage = Number(coupon.percentage || coupon.discountPercent || 0)
+      couponDiscount = percentage
+      // Discount applies to the product price in the order (percentage of subtotal), rounded to 2 decimals
+      discountAmount = Math.min(
+        Math.round(((subtotal * percentage) / 100) * 100) / 100,
+        subtotal
+      )
     }
 
-    const amount = Math.max(0, rawTotal - discountAmount)
+    const amount = Math.max(0, Math.round((subtotal + deliveryFee - discountAmount) * 100) / 100)
 
     // ── Create the order ──────────────────────────────────────
     const providerForMethod = {
@@ -320,6 +462,7 @@ export async function POST(request) {
       deliveryFee,
       couponCode,
       couponDiscount,
+      percentage,
       discountAmount,
       utr: method === 'upi' ? utr : '',
       upiId: method === 'upi' ? settings.upiId || '' : '',

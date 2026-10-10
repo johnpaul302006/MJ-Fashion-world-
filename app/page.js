@@ -1,48 +1,24 @@
 import Link from 'next/link'
-import { getSettings, getProducts } from '@/lib/data'
+import { getSettings, getProducts, getCategories } from '@/lib/data'
 import { CATEGORIES } from '@/lib/categories'
 import ProductCard from '@/components/ProductCard'
 import ProductImage from '@/components/ProductImage'
 import { HostAddButton } from '@/components/HostProductActions'
+import ShopByCategory from '@/components/ShopByCategory'
+import AnimatedProductGrid from '@/components/AnimatedProductGrid'
 import { imgUrl } from '@/lib/img-url'
 import { inr, discountPct } from '@/lib/format'
 
-/* ── Category images (direct Pexels links — no proxy needed) ── */
-const CAT_IMAGE = {
-  boys:     {
-    img: 'https://images.pexels.com/photos/15459807/pexels-photo-15459807.jpeg?auto=compress&cs=tinysrgb&w=480',
-    label: 'BOYS',
-    sub: 'Trendy Fits',
-  },
-  girls:    {
-    img: 'https://images.pexels.com/photos/19214177/pexels-photo-19214177.jpeg?auto=compress&cs=tinysrgb&w=480',
-    label: 'GIRLS',
-    sub: 'New Collection',
-  },
-  children: {
-    img: 'https://images.pexels.com/photos/33776741/pexels-photo-33776741.jpeg?auto=compress&cs=tinysrgb&w=480',
-    label: 'CHILDREN',
-    sub: 'Fun & Colorful',
-  },
-  men:      {
-    img: 'https://images.pexels.com/photos/35312945/pexels-photo-35312945.jpeg?auto=compress&cs=tinysrgb&w=480',
-    label: 'MEN',
-    sub: 'Classic Styles',
-  },
-  women:    {
-    img: 'https://images.pexels.com/photos/9767828/pexels-photo-9767828.jpeg?auto=compress&cs=tinysrgb&w=480',
-    label: 'WOMEN',
-    sub: 'Latest Trends',
-  },
-}
-
-
 export default async function Home() {
   const settings = await getSettings()
+  const categories = await getCategories()
+  const newArrivals = await getProducts({ newArrivals: true, limit: 8 })
   const featured = await getProducts({ featured: true, limit: 8 })
+  const displayArrivals = newArrivals.length > 0 ? newArrivals : featured
   const sale = (await getProducts({ onSale: true, limit: 8 })).filter(
     (p) => discountPct(p.price, p.mrp) >= 15
   )
+
 
   return (
     <div className="bg-[#f8f8f8] dark:bg-[#0f0f0f]">
@@ -171,80 +147,32 @@ export default async function Home() {
       </section>
 
       {/* ══════════════════════════════════════════════
-          SHOP BY CATEGORY
+          SHOP BY CATEGORY (Professional Redesign)
       ══════════════════════════════════════════════ */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-xs font-bold tracking-[0.2em] uppercase text-brand mb-1">Browse</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">Shop by Category</h2>
-          </div>
-          <Link href="/shop" className="text-sm font-semibold text-brand hover:underline">
-            View All →
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {CATEGORIES.map((c) => {
-            const cat = CAT_IMAGE[c.slug] || { img: '', label: c.label.toUpperCase(), sub: 'Shop Now' }
-            return (
-              <Link
-                key={c.slug}
-                href={`/shop?category=${c.slug}`}
-                className="group relative overflow-hidden rounded-sm shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-                style={{ aspectRatio: '3/4' }}
-              >
-                {/* Fashion image */}
-                <div className="absolute inset-0 bg-gray-200 dark:bg-[#222]">
-                  {cat.img && (
-                    <img
-                      src={cat.img}
-                      alt={cat.label}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                      loading="lazy"
-                    />
-                  )}
-                </div>
-                {/* Gradient overlay for text legibility */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                {/* Label */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 text-center">
-                  <p className="font-black text-white text-sm tracking-wider drop-shadow-sm">{cat.label}</p>
-                  <p className="text-[10px] text-white/75 mt-0.5 drop-shadow-sm">{cat.sub}</p>
-                  <div className="mt-2 inline-block bg-white text-[10px] font-bold text-gray-900 px-3 py-1 tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-sm">
-                    SHOP NOW
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-
-      </section>
+      <ShopByCategory initialCategories={categories} />
 
       {/* ══════════════════════════════════════════════
-          NEW ARRIVALS
+          NEW ARRIVALS (Controlled by Host)
       ══════════════════════════════════════════════ */}
-      {featured.length > 0 ? (
-        <section className="py-10 bg-white dark:bg-[#111]">
+      {displayArrivals.length > 0 ? (
+        <section className="py-12 bg-white dark:bg-[#111] border-t border-gray-100 dark:border-[#222]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-end justify-between mb-6">
+            <div className="flex items-end justify-between mb-8">
               <div>
-                <p className="text-xs font-bold tracking-[0.2em] uppercase text-brand mb-1">Just In</p>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#cc0000]/10 text-[#cc0000] border border-[#cc0000]/20 mb-2">
+                  <span>✦</span> Fresh Off The Runway
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">New Arrivals</h2>
               </div>
               <div className="flex items-center gap-3">
                 <HostAddButton />
-                <Link href="/shop" className="text-sm font-semibold text-brand hover:underline">
-                  View All →
+                <Link href="/new-arrivals" className="text-xs sm:text-sm font-bold text-[#cc0000] hover:underline flex items-center gap-1">
+                  <span>View All New Arrivals</span>
+                  <span>→</span>
                 </Link>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {featured.map((p) => (
-                <ProductCard key={p._id} product={p} />
-              ))}
-            </div>
+            <AnimatedProductGrid products={displayArrivals} />
           </div>
         </section>
       ) : null}

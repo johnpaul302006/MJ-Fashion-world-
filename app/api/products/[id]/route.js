@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getProduct } from '@/lib/data'
 import { connectDb } from '@/lib/db'
 import { Product } from '@/lib/models'
-import { requireAdmin } from '@/lib/auth'
+import { requireAdmin, getUser } from '@/lib/auth'
 import { isNonImageLink } from '@/lib/img-url'
 
 export async function GET(_request, { params }) {
@@ -14,9 +14,13 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
-    await requireAdmin()
+    const user = await getUser()
+    const hostEmail = (process.env.HOST_EMAIL || 'sjohnpaul638@gmail.com').toLowerCase()
+    if (!user || user.role !== 'host' || (user.email && user.email.toLowerCase() !== hostEmail)) {
+      await requireAdmin()
+    }
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: err.status || 500 })
+    return NextResponse.json({ error: 'Unauthorized: Only the host account (sjohnpaul638@gmail.com) can manage products' }, { status: 401 })
   }
   try {
     const { id } = await params
@@ -31,13 +35,17 @@ export async function PATCH(request, { params }) {
         { status: 400 }
       )
     }
-    const allowed = ['name', 'category', 'price', 'mrp', 'stock', 'sizes', 'colors', 'image', 'description', 'featured']
+    const allowed = ['name', 'category', 'price', 'mrp', 'stock', 'sizes', 'colors', 'image', 'images', 'description', 'featured', 'brand', 'tags', 'isNewArrival']
     const patch = {}
     for (const k of allowed) {
       if (typeof data[k] === 'undefined') continue
       if (['price', 'mrp', 'stock'].includes(k)) patch[k] = Number(data[k]) || 0
-      else if (k === 'sizes' || k === 'colors') patch[k] = Array.isArray(data[k]) ? data[k].map(String) : []
+      else if (k === 'sizes' || k === 'colors' || k === 'tags' || k === 'images') patch[k] = Array.isArray(data[k]) ? data[k].map(String) : []
       else if (k === 'featured') patch[k] = Boolean(data[k])
+      else if (k === 'isNewArrival') {
+        patch.isNewArrival = Boolean(data.isNewArrival)
+        patch.newArrivalAt = Boolean(data.isNewArrival) ? new Date() : null
+      }
       else patch[k] = String(data[k])
     }
     const product = await Product.findByIdAndUpdate(id, { $set: patch }, { new: true })
@@ -50,9 +58,13 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_request, { params }) {
   try {
-    await requireAdmin()
+    const user = await getUser()
+    const hostEmail = (process.env.HOST_EMAIL || 'sjohnpaul638@gmail.com').toLowerCase()
+    if (!user || user.role !== 'host' || (user.email && user.email.toLowerCase() !== hostEmail)) {
+      await requireAdmin()
+    }
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: err.status || 500 })
+    return NextResponse.json({ error: 'Unauthorized: Only the host account (sjohnpaul638@gmail.com) can manage products' }, { status: 401 })
   }
   try {
     const { id } = await params
