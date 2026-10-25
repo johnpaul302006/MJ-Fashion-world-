@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function OffersBar() {
   const { offers, hosting, refresh } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
   const [show, setShow] = useState(() => {
     if (typeof window === 'undefined') return true
     try {
@@ -19,7 +22,6 @@ export default function OffersBar() {
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const router = useRouter()
   const seenRef = useRef(null)
 
   useEffect(() => {
@@ -95,32 +97,44 @@ export default function OffersBar() {
         </div>
       ) : null}
       {show ? (
-        <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm px-4 py-1.5 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-gray-400 dark:text-gray-500">
+        <div className={`bg-white dark:bg-slate-900 text-slate-900 dark:text-white flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 ${
+          isAdmin ? 'text-xs px-3 sm:px-6 h-8 py-0.5' : 'text-xs sm:text-sm px-4 py-1.5'
+        }`}>
+          <div className="flex items-center gap-2 overflow-hidden truncate">
+            <span className="text-gray-400 dark:text-gray-500 shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
             </span>
-            {offers.map((o, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5">
-                <b>{o.title}</b>
-                {o.text ? <span className="hidden sm:inline">— {o.text}</span> : null}
-              </span>
-            ))}
+            <div className="flex items-center gap-2.5 truncate">
+              {offers.map((o, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 truncate text-xs">
+                  <b className="font-bold">{o.title}</b>
+                  {o.text ? <span className="hidden sm:inline text-slate-500 dark:text-slate-400">— {o.text}</span> : null}
+                  {i < offers.length - 1 && <span className="text-slate-300 dark:text-slate-700">|</span>}
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 text-xs">
             {hosting ? (
               <>
-                <button onClick={() => { setAddOpen(!addOpen); if (!addOpen) try { localStorage.setItem('seen_offers', String(offers.length)) } catch {} }} className="font-bold hover:underline">
+                <button
+                  type="button"
+                  onClick={() => { setAddOpen(!addOpen); if (!addOpen) try { localStorage.setItem('seen_offers', String(offers.length)) } catch {} }}
+                  className="font-bold text-brand hover:underline"
+                >
                   ＋ Add
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
-                    saveOffers(offers.slice(0, -1))
+                    if (window.confirm('Are you sure you want to remove the latest coupon offer?')) {
+                      saveOffers(offers.slice(0, -1))
+                    }
                   }}
-                  className="font-bold hover:underline"
-                  title="Remove last coupon"
+                  className="font-semibold text-slate-500 hover:text-rose-600 transition"
+                  title="Remove latest coupon offer"
                 >
-                  Remove
+                  Remove Latest
                 </button>
               </>
             ) : (

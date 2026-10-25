@@ -4,6 +4,7 @@ import { Order, Product } from '@/lib/models'
 import { requireAdmin, getUser } from '@/lib/auth'
 import { ORDER_STATUS, STATUS_LABEL } from '@/lib/categories'
 import { createShipmentForOrder } from '@/lib/shipping'
+import { dispatchOrderNotification } from '@/lib/notifications'
 
 export async function PATCH(request, { params }) {
   const user = await getUser()
@@ -45,6 +46,9 @@ export async function PATCH(request, { params }) {
           order.items.map((i) => i.productId && Product.findByIdAndUpdate(i.productId, { $inc: { stock: i.qty } }))
         )
         await order.save()
+        dispatchOrderNotification(order, 'order_cancelled').catch((err) => {
+          console.error('[Notification Trigger] Customer cancellation dispatch failed:', err.message)
+        })
         return NextResponse.json({
           ok: true,
           order: {
@@ -130,6 +134,14 @@ export async function PATCH(request, { params }) {
       order.tracking.updatedAt = new Date()
     }
     await order.save()
+
+    // Send automated WhatsApp/SMS lifecycle notification (asynchronous, non-blocking)
+    if (typeof data.status !== 'undefined' && data.status !== oldStatus) {
+      const eventName = data.status === 'out_for_delivery' ? 'out_for_delivery' : `order_${data.status}`
+      dispatchOrderNotification(order, eventName).catch((err) => {
+        console.error(`[Notification Trigger] ${eventName} dispatch failed:`, err.message)
+      })
+    }
 
     return NextResponse.json({
       ok: true,

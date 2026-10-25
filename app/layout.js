@@ -12,9 +12,23 @@ const inter = Inter({
   display: "swap",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mjfashionworld.com';
+
 export const metadata = {
-  title: "MJ Fashion World — Shop Boys, Girls, Children, Men & Women",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "MJ Fashion World — Shop Boys, Girls, Children, Men & Women",
+    template: "%s | MJ Fashion World",
+  },
   description: "Your one-stop fashion destination. Shop the latest styles for the whole family. Easy UPI payment and fast delivery.",
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    siteName: "MJ Fashion World",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default async function RootLayout({ children }) {

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { fileToDataUrl } from '@/lib/image-upload'
+import { processAdminImage } from '@/lib/image-upload'
+import { useAdminToast } from './AdminToast'
 
 export default function AdminCategories() {
+  const { showSuccess, showError, showWarning } = useAdminToast()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   // Modal State
   const [modalType, setModalType] = useState(null) // 'add' | 'edit' | 'delete'
@@ -29,11 +29,11 @@ export default function AdminCategories() {
       if (!res.ok) throw new Error(data.error || 'Failed to load categories')
       setCategories(data.categories || [])
     } catch (err) {
-      setError(err.message)
+      showError(err.message || 'Failed to fetch categories')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showError])
 
   useEffect(() => {
     let cancelled = false
@@ -49,14 +49,14 @@ export default function AdminCategories() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || 'Failed to load categories')
+          showError(err.message || 'Failed to load categories')
           setLoading(false)
         }
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [showError])
 
   const openAdd = () => {
     setForm({
@@ -87,14 +87,15 @@ export default function AdminCategories() {
     setModalType('delete')
   }
 
-  const handleImageFile = async (e) => {
-    const file = e.target.files?.[0]
+  const handleImageFile = async (file) => {
     if (!file) return
     try {
-      const url = await fileToDataUrl(file)
-      setForm((prev) => ({ ...prev, image: url }))
-    } catch {
-      setFormError('Failed to read image file')
+      const processed = await processAdminImage(file, { maxWidth: 900, quality: 0.82 })
+      setForm((prev) => ({ ...prev, image: processed.dataUrl }))
+      showSuccess(`Image processed (${processed.compressedKb} KB)`)
+    } catch (err) {
+      setFormError('Failed to read image file: ' + err.message)
+      showError('Image processing error')
     }
   }
 
@@ -116,12 +117,12 @@ export default function AdminCategories() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save category')
 
-      setSuccess(modalType === 'add' ? 'Category created successfully!' : 'Category updated successfully!')
-      setTimeout(() => setSuccess(''), 3000)
+      showSuccess(modalType === 'add' ? 'Category created successfully!' : 'Category updated successfully!')
       setModalType(null)
       fetchCategories()
     } catch (err) {
       setFormError(err.message)
+      showError(err.message)
     } finally {
       setSaving(false)
     }
@@ -148,17 +149,16 @@ export default function AdminCategories() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to delete category')
 
-      setSuccess(
+      showSuccess(
         `Category "${selectedCat.label}" deleted.` +
           (data.reassignedProducts > 0 ? ` (${data.reassignedProducts} products preserved under "All")` : '')
       )
-      setTimeout(() => setSuccess(''), 4000)
       setModalType(null)
       setSelectedCat(null)
       setDeleteWarning(null)
       fetchCategories()
     } catch (err) {
-      setError(err.message)
+      showError(err.message)
     } finally {
       setSaving(false)
     }
@@ -166,56 +166,48 @@ export default function AdminCategories() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      {/* Header Banner */}
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-6 shadow-xs">
         <div>
-          <span className="text-xs font-bold text-[#cc0000] uppercase tracking-wider">Store Customization</span>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">Shop by Category Management</h2>
+          <span className="text-[11px] font-bold text-brand uppercase tracking-wider">
+            Store Customization
+          </span>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+            Category Management
+          </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Control the categories displayed on the customer home page and shop filter. Newly added categories
-            instantly appear in the dynamic curved sphere gallery and product dropdowns.
+            Control the categories shown in the customer navigation and homepage gallery. Newly added categories
+            instantly appear across the storefront.
           </p>
         </div>
         <button
+          type="button"
           onClick={openAdd}
-          className="px-5 py-2.5 rounded-xl bg-[#cc0000] hover:bg-[#b30000] text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold text-xs uppercase tracking-wider transition shadow-xs flex items-center gap-1.5"
         >
           <span>+</span> Add Category
         </button>
       </div>
 
-      {success && (
-        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-          <span>✓</span> {success}
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
-          <span>⚠</span> {error}
-        </div>
-      )}
-
       {/* Categories Grid */}
       {loading ? (
-        <div className="py-16 text-center text-slate-400">
-          <div className="w-7 h-7 border-2 border-[#cc0000] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-xs">Loading categories…</p>
+        <div className="py-16 text-center text-slate-400 animate-pulse">
+          <p className="text-xs font-semibold">Loading categories…</p>
         </div>
       ) : categories.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No categories found</p>
-          <p className="text-xs text-slate-500 mt-1">Create your first category above.</p>
+        <div className="p-12 text-center bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">No categories found</p>
+          <p className="text-xs text-slate-400 mt-1">Create your first category above.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {categories.map((cat) => (
             <div
               key={cat._id || cat.slug}
-              className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
+              className="group relative bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col"
             >
               {/* Image Banner */}
-              <div className="relative aspect-[16/10] bg-neutral-900 overflow-hidden">
+              <div className="relative aspect-[16/10] bg-slate-900 overflow-hidden">
                 {cat.image ? (
                   <img
                     src={cat.image}
@@ -223,38 +215,42 @@ export default function AdminCategories() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500">No Image</div>
+                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                    No Image
+                  </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/20">
                   Slug: {cat.slug}
                 </div>
-                <div className="absolute top-3 right-3 bg-[#cc0000] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                <div className="absolute top-3 right-3 bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                   Order #{cat.order ?? 0}
                 </div>
                 <div className="absolute bottom-3 left-3 right-3 text-white">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#cc0000] font-bold">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
                     {cat.sub || 'Collection'}
                   </span>
-                  <h3 className="text-lg font-black tracking-tight">{cat.label}</h3>
+                  <h3 className="text-base sm:text-lg font-black tracking-tight">{cat.label}</h3>
                 </div>
               </div>
 
               {/* Actions Footer */}
               <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs mt-auto">
-                <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                <span className="text-slate-400 font-mono text-[11px]">
                   ID: {String(cat._id || cat.slug).slice(-6)}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => openEdit(cat)}
-                    className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold transition cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold transition"
                   >
                     Edit
                   </button>
                   <button
+                    type="button"
                     onClick={() => openDelete(cat)}
-                    className="px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 font-bold transition cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 font-bold transition"
                   >
                     Delete
                   </button>
@@ -267,10 +263,10 @@ export default function AdminCategories() {
 
       {/* Add / Edit Modal */}
       {(modalType === 'add' || modalType === 'edit') && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <form
             onSubmit={handleSave}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 my-8"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4 my-8"
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -279,7 +275,7 @@ export default function AdminCategories() {
               <button
                 type="button"
                 onClick={() => setModalType(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold"
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition"
               >
                 ✕
               </button>
@@ -301,7 +297,7 @@ export default function AdminCategories() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Enter unique category name"
-                className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-[#cc0000]"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-brand"
               />
             </div>
 
@@ -315,13 +311,27 @@ export default function AdminCategories() {
                 value={form.image}
                 onChange={(e) => setForm({ ...form, image: e.target.value })}
                 placeholder="Paste image URL (https://...)"
-                className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-[#cc0000] mb-2"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-brand mb-2"
               />
               <div className="flex items-center gap-2">
-                <label className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-xs font-semibold cursor-pointer">
-                  <span>Upload Image File</span>
-                  <input type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('cat-image-file')?.click()}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-200 transition"
+                >
+                  Upload Image File
+                </button>
+                <input
+                  id="cat-image-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleImageFile(f)
+                    e.target.value = ''
+                  }}
+                  className="hidden"
+                />
               </div>
 
               {/* Image Preview */}
@@ -345,7 +355,7 @@ export default function AdminCategories() {
                   value={form.sub}
                   onChange={(e) => setForm({ ...form, sub: e.target.value })}
                   placeholder="e.g. Trendy Fits"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-[#cc0000]"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-brand"
                 />
               </div>
               <div>
@@ -356,16 +366,16 @@ export default function AdminCategories() {
                   type="number"
                   value={form.order}
                   onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-[#cc0000]"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs outline-none focus:border-brand"
                 />
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 h-10 rounded-xl bg-[#cc0000] hover:bg-[#b30000] text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 cursor-pointer"
+                className="flex-1 h-10 rounded-xl bg-brand hover:bg-brand-dark text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50"
               >
                 {saving ? 'Saving…' : modalType === 'add' ? 'Create Category' : 'Save Changes'}
               </button>
@@ -383,8 +393,8 @@ export default function AdminCategories() {
 
       {/* Delete Confirmation Modal */}
       {modalType === 'delete' && selectedCat && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Delete &ldquo;{selectedCat.label}&rdquo;?
             </h3>
@@ -408,9 +418,9 @@ export default function AdminCategories() {
                 type="button"
                 disabled={saving}
                 onClick={() => handleDelete(Boolean(deleteWarning))}
-                className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 cursor-pointer"
+                className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50"
               >
-                {saving ? 'Deleting…' : deleteWarning ? 'Confirm & Reassign Products' : 'Delete Category'}
+                {saving ? 'Deleting…' : deleteWarning ? 'Confirm & Reassign' : 'Delete Category'}
               </button>
               <button
                 type="button"

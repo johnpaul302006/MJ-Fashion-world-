@@ -2,17 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function AnnouncementBar() {
   const { announcements, announcement, hosting, refresh } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
   const [stripHidden, setStripHidden] = useState(false)
   const [toast, setToast] = useState(null)
   const [composeOpen, setComposeOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const router = useRouter()
   const toastTimer = useRef(null)
 
   const live = (announcements || []).filter((a) => a.active)
@@ -93,26 +95,35 @@ export default function AnnouncementBar() {
       ) : null}
 
       {hosting ? (
-        <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm px-4 py-1.5 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700">
-          <span className="flex items-center gap-2">
-            <b>Announcements:</b>
-            {live.length === 0 ? ' none yet' : live.map((a, i) => <span key={a.id}>{a.title}{i < live.length - 1 ? ',' : ''}</span>)}
-          </span>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setComposeOpen(!composeOpen)} className="font-bold hover:underline">
+        <div className={`bg-white dark:bg-slate-900 text-slate-900 dark:text-white flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 ${
+          isAdmin ? 'text-xs px-3 sm:px-6 h-8 py-0.5' : 'text-xs sm:text-sm px-4 py-1.5'
+        }`}>
+          <div className="flex items-center gap-2 overflow-hidden truncate text-xs">
+            <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Announcements:</span>
+            <div className="truncate text-slate-600 dark:text-slate-400">
+              {live.length === 0 ? 'None active currently' : live.map((a, i) => <span key={a.id} className="mr-2 font-medium">{a.title}{i < live.length - 1 ? ',' : ''}</span>)}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 text-xs">
+            <button
+              type="button"
+              onClick={() => setComposeOpen(!composeOpen)}
+              className="font-bold text-brand hover:underline"
+            >
               ＋ New Announcement
             </button>
             {live.length > 0 ? (
               <button
+                type="button"
                 onClick={() => {
-                  if (!confirm('Remove the latest announcement?')) return
+                  if (!window.confirm('Are you sure you want to remove the latest announcement?')) return
                   const next = announcements.filter((a) => a.id !== live[live.length - 1].id)
                   saveAnnouncements(next)
                 }}
-                className="font-bold hover:underline"
-                title="Remove latest announcement"
+                className="font-semibold text-slate-500 hover:text-rose-600 transition"
+                title="Remove latest broadcast announcement"
               >
-                Remove
+                Remove Latest
               </button>
             ) : null}
           </div>

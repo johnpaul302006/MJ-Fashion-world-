@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { connectDb, dbConfigured } from '@/lib/db'
-import { Review, Product } from '@/lib/models'
+import { Review, Product, Order } from '@/lib/models'
 import { getUser } from '@/lib/auth'
 
-// GET /api/products/[id]/reviews — fetch all reviews for a product + average rating
+// GET /api/products/[id]/reviews — fetch all reviews for a product + average rating + canReview flag
 export async function GET(_request, { params }) {
   const { id } = await params
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ reviews: [], avg: 0, count: 0 })
+    return NextResponse.json({ reviews: [], avg: 0, count: 0, canReview: false })
   }
-  if (!dbConfigured) return NextResponse.json({ reviews: [], avg: 0, count: 0 })
+  if (!dbConfigured) return NextResponse.json({ reviews: [], avg: 0, count: 0, canReview: false })
   const conn = await connectDb()
-  if (!conn) return NextResponse.json({ reviews: [], avg: 0, count: 0 })
+  if (!conn) return NextResponse.json({ reviews: [], avg: 0, count: 0, canReview: false })
 
   try {
     const reviews = await Review.find({ productId: id })
@@ -24,6 +24,24 @@ export async function GET(_request, { params }) {
     const avg = count > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / count : 0
 
     const user = await getUser()
+
+    let canReview = false
+    if (user?.id) {
+      if (user.role === 'host') {
+        canReview = true
+      } else {
+        const userConditions = [{ userId: user.id }]
+        if (user.email) userConditions.push({ customerEmail: user.email.toLowerCase() })
+        if (user.phone) userConditions.push({ 'customer.phone': user.phone })
+
+        const hasDelivered = await Order.exists({
+          $or: userConditions,
+          status: 'delivered',
+          'items.productId': id,
+        })
+        canReview = Boolean(hasDelivered)
+      }
+    }
 
     return NextResponse.json({
       reviews: reviews.map((r) => ({
@@ -39,13 +57,14 @@ export async function GET(_request, { params }) {
       })),
       avg: Math.round(avg * 100) / 100,
       count,
+      canReview,
     })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-// POST /api/products/[id]/reviews — create or update a review
+// POST /api/products/[id]/reviews — create or update a review (verified buyers only)
 export async function POST(request, { params }) {
   const { id } = await params
 
@@ -71,6 +90,26 @@ export async function POST(request, { params }) {
   const productExists = await Product.exists({ _id: id })
   if (!productExists) {
     return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+  }
+
+  // Security check: Only verified customers who have a delivered order containing this product can review
+  if (user.role !== 'host') {
+    const userConditions = [{ userId: user.id }]
+    if (user.email) userConditions.push({ customerEmail: user.email.toLowerCase() })
+    if (user.phone) userConditions.push({ 'customer.phone': user.phone })
+
+    const hasDelivered = await Order.exists({
+      $or: userConditions,
+      status: 'delivered',
+      'items.productId': id,
+    })
+
+    if (!hasDelivered) {
+      return NextResponse.json(
+        { error: 'Only verified customers who have received this product (delivered order) can submit a review.' },
+        { status: 403 }
+      )
+    }
   }
 
   // Parse and validate body

@@ -28,7 +28,7 @@ export default function AdminLogin({ onLogin }) {
   }
 
   return (
-    <div className="bg-anim relative flex min-h-[70vh] items-center justify-center overflow-hidden px-4">
+    <div className="bg-anim relative flex min-h-screen py-12 items-center justify-center overflow-hidden px-4">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="blob absolute -left-24 -top-24 h-80 w-80 rounded-full bg-violet-600/30 blur-3xl" />
         <div className="blob-2 absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-indigo-600/30 blur-3xl" />

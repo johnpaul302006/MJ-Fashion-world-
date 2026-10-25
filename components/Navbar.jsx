@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { CATEGORIES } from '@/lib/categories'
 import { cartCount } from '@/lib/cart-client'
 import { wishlistCount } from '@/lib/wishlist-client'
@@ -106,6 +106,8 @@ export default function Navbar({ storeName, user }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
 
   useEffect(() => {
     let saved = null
@@ -175,8 +177,8 @@ export default function Navbar({ storeName, user }) {
           </div>
           {/* Right — utility links */}
           <div className="flex items-center gap-1 ml-auto shrink-0">
-            {/* User badge */}
-            {currentUser?.email ? (
+            {/* User badge — suppressed on admin since AdminTopBar shows rich host profile */}
+            {!isAdmin && currentUser?.email ? (
               <span className="hidden lg:flex items-center gap-1.5 text-gray-400 truncate max-w-[200px] mr-1 text-[11px]">
                 <span className="truncate">{currentUser.email}</span>
                 {hosting && (
@@ -187,8 +189,8 @@ export default function Navbar({ storeName, user }) {
               </span>
             ) : null}
 
-            {/* Host Panel */}
-            {hosting ? (
+            {/* Host Panel link — suppressed when already on admin console */}
+            {!isAdmin && hosting ? (
               <Link
                 href="/admin"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-sm text-amber-400 hover:text-amber-300 hover:bg-white/5 transition-colors hidden md:flex text-[11px] font-semibold"
@@ -207,34 +209,38 @@ export default function Navbar({ storeName, user }) {
               <span>Track Order</span>
             </Link>
 
-            {/* Theme toggle */}
-            <button
-              onClick={toggleTheme}
-              title="Toggle theme"
-              className="p-1.5 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors flex items-center"
-            >
-              {dark ? <SunIcon /> : <MoonIcon />}
-            </button>
+            {/* Theme toggle — suppressed on admin since AdminTopBar has canonical toggle */}
+            {!isAdmin && (
+              <button
+                onClick={toggleTheme}
+                title="Toggle theme"
+                className="p-1.5 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors flex items-center"
+              >
+                {dark ? <SunIcon /> : <MoonIcon />}
+              </button>
+            )}
 
             {/* Divider */}
-            <span className="hidden md:block w-px h-4 bg-[#333] mx-1" />
+            {!isAdmin && <span className="hidden md:block w-px h-4 bg-[#333] mx-1" />}
 
-            {/* Logout — single, canonical button */}
-            {currentUser ? (
-              <button
-                onClick={onLogout}
-                className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-red-400 hover:bg-white/5 transition-colors text-[11px]"
-              >
-                <LogoutIcon />
-                <span>Logout</span>
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-[11px]"
-              >
-                <span>Login</span>
-              </Link>
+            {/* Logout — suppressed on admin since AdminTopBar has canonical logout button */}
+            {!isAdmin && (
+              currentUser ? (
+                <button
+                  onClick={onLogout}
+                  className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-red-400 hover:bg-white/5 transition-colors text-[11px]"
+                >
+                  <LogoutIcon />
+                  <span>Logout</span>
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-[11px]"
+                >
+                  <span>Login</span>
+                </Link>
+              )
             )}
           </div>
         </div>

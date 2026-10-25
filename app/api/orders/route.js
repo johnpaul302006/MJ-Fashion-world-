@@ -8,6 +8,7 @@ import { getUser, requireUser } from '@/lib/auth'
 import { getCurrentDbUser } from '@/lib/user'
 import * as razorpay from '@/lib/payments/razorpay'
 import * as stripe from '@/lib/payments/stripe'
+import { dispatchOrderNotification } from '@/lib/notifications'
 
 const VALID_METHODS = ['upi', 'cod', 'razorpay', 'stripe']
 
@@ -545,6 +546,11 @@ export async function POST(request) {
         )
       }
     }
+
+    // Automated order confirmation notification (asynchronous, non-blocking)
+    dispatchOrderNotification(order, 'order_placed', { storeName: settings.storeName }).catch((err) => {
+      console.error('[Notification Trigger] Failed to send order_placed notification:', err.message)
+    })
 
     return NextResponse.json(
       { ok: true, order: customerSafe(order.toObject()), payment },

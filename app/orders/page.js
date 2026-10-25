@@ -175,6 +175,14 @@ function OrderCard({ o, onCancel, onExchange, cancelling }) {
         >
           View Details
         </Link>
+        <Link
+          href={`/order/${o.orderId}/invoice`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:border-neutral-400 text-xs font-bold px-4 py-2 rounded-sm uppercase tracking-wider transition-colors inline-flex items-center gap-1"
+        >
+          <span>📄</span> Invoice
+        </Link>
 
         {canCancel && onCancel ? (
           <button

@@ -1,109 +1,115 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Suspense, lazy, useState, useEffect } from 'react'
 import AdminLogin from '@/components/admin/AdminLogin'
-import AdminDashboard from '@/components/admin/AdminDashboard'
-import AdminProducts from '@/components/admin/AdminProducts'
-import AdminOrders from '@/components/admin/AdminOrders'
-import AdminSettings from '@/components/admin/AdminSettings'
-import AdminBroadcast from '@/components/admin/AdminBroadcast'
-import AdminCoupons from '@/components/admin/AdminCoupons'
-import AdminReturns from '@/components/admin/AdminReturns'
-import AdminCategories from '@/components/admin/AdminCategories'
+import { AdminToastProvider } from './AdminToast'
+import AdminTopBar from './AdminTopBar'
+import { useAdminConsole } from './AdminConsoleContext'
 
-const TABS = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'products', label: 'Products' },
-  { id: 'categories', label: '🏷 Categories' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'returns', label: '📦 Returns & Exchanges' },
-  { id: 'coupons', label: '🎟 Coupons' },
-  { id: 'broadcast', label: 'Broadcast' },
-  { id: 'settings', label: 'Settings' },
-]
+// Route-level code splitting: lazy load each admin tab screen
+const AdminDashboard = lazy(() => import('@/components/admin/AdminDashboard'))
+const AdminProducts = lazy(() => import('@/components/admin/AdminProducts'))
+const AdminCategories = lazy(() => import('@/components/admin/AdminCategories'))
+const AdminOrders = lazy(() => import('@/components/admin/AdminOrders'))
+const AdminReturns = lazy(() => import('@/components/admin/AdminReturns'))
+const AdminCoupons = lazy(() => import('@/components/admin/AdminCoupons'))
+const AdminBroadcast = lazy(() => import('@/components/admin/AdminBroadcast'))
+const AdminSettings = lazy(() => import('@/components/admin/AdminSettings'))
+
+function TabSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse py-4">
+      <div className="h-28 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-5" />
+      <div className="h-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-5" />
+    </div>
+  )
+}
 
 export default function AdminApp() {
-  const [authed, setAuthed] = useState(null)
-  const [tab, setTab] = useState('dashboard')
-  const [dbOk, setDbOk] = useState(true)
-  const router = useRouter()
+  const consoleCtx = useAdminConsole()
+
+  // Fallback states if rendered outside provider
+  const [localAuthed, setLocalAuthed] = useState(null)
+  const [localTab, setLocalTab] = useState('products')
+  const [localDbOk, setLocalDbOk] = useState(true)
 
   useEffect(() => {
-    fetch('/api/auth').then((r) => r.json()).then((d) => setAuthed(Boolean(d.ok))).catch(() => setAuthed(false))
-    fetch('/api/health').then((r) => r.json()).then((d) => setDbOk(Boolean(d.db))).catch(() => {})
-  }, [])
+    if (consoleCtx) return
+    fetch('/api/auth')
+      .then((r) => r.json())
+      .then((d) => setLocalAuthed(Boolean(d.ok)))
+      .catch(() => setLocalAuthed(false))
+
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((d) => setLocalDbOk(Boolean(d.db)))
+      .catch(() => {})
+  }, [consoleCtx])
+
+  const authed = consoleCtx ? consoleCtx.authed : localAuthed
+  const setAuthed = consoleCtx ? consoleCtx.setAuthed : setLocalAuthed
+  const activeTab = consoleCtx ? consoleCtx.activeTab : localTab
+  const setActiveTab = consoleCtx ? consoleCtx.setActiveTab : setLocalTab
+  const dbOk = consoleCtx ? consoleCtx.dbOk : localDbOk
+  const openMobile = consoleCtx ? consoleCtx.openMobile : () => {}
 
   if (authed === null) {
-    return <div className="min-h-[60vh] flex items-center justify-center text-slate-400">Loading...</div>
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-slate-400 gap-3">
+        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-semibold">Authenticating host session...</span>
+      </div>
+    )
   }
 
-  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />
+  if (!authed) {
+    return <AdminLogin onLogin={() => setAuthed(true)} />
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Seller / Admin Panel</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Manage products, verify payments & track orders</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/" className="text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-brand font-semibold text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg">
-            View Store ↗
-          </Link>
-          <Link href="/orders" className="text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-brand font-semibold text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg">
-            Track Page
-          </Link>
-          <button
-            onClick={async () => {
-              await fetch('/api/auth', { method: 'DELETE' })
-              await fetch('/api/login', { method: 'DELETE' })
-              router.push('/')
-            }}
-            className="text-sm bg-white dark:bg-slate-900 border border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950 font-semibold text-red-600 dark:text-red-400 px-4 py-2 rounded-lg"
-          >
-            Logout
-          </button>
+    <AdminToastProvider>
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950">
+        {/* Sticky Console Header directly below navigation */}
+        <AdminTopBar
+          activeTab={activeTab}
+          onOpenMobile={openMobile}
+          dbOk={dbOk}
+        />
+
+        {/* Main Content Area */}
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {/* Database Connection Alert */}
+          {!dbOk && (
+            <div className="bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900 rounded-2xl p-4 text-xs sm:text-sm text-amber-900 dark:text-amber-200 mb-6 shadow-xs">
+              <b>Database not connected.</b> Your site is showing demo data and saved products/orders are not being stored.
+              <ol className="list-decimal ml-5 mt-2 space-y-1">
+                <li>Open <b>https://atlas.mongodb.org</b> and ensure your cluster is not <b>PAUSED</b>.</li>
+                <li>Check <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">.env.local</code> for a valid <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">MONGODB_URI</code>.</li>
+                <li>Restart your server to reconnect live database storage.</li>
+              </ol>
+            </div>
+          )}
+
+          {/* Suspense-wrapped Tab Content */}
+          <Suspense fallback={<TabSkeleton />}>
+            {activeTab === 'dashboard' && (
+              <AdminDashboard
+                goToOrders={() => setActiveTab('orders')}
+                goToProducts={() => setActiveTab('products')}
+                goToReturns={() => setActiveTab('returns')}
+                goToCoupons={() => setActiveTab('coupons')}
+              />
+            )}
+            {activeTab === 'products' && <AdminProducts />}
+            {activeTab === 'categories' && <AdminCategories />}
+            {activeTab === 'orders' && <AdminOrders />}
+            {activeTab === 'returns' && <AdminReturns />}
+            {activeTab === 'coupons' && <AdminCoupons />}
+            {activeTab === 'broadcast' && <AdminBroadcast />}
+            {activeTab === 'settings' && <AdminSettings />}
+          </Suspense>
         </div>
       </div>
-
-      {!dbOk ? (
-        <div className="bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200 mb-5">
-          <b>Database not connected.</b> Your site is showing demo data and your saved products/orders are not being stored.{' '}
-          <br />
-          <b>How to fix (5 min):</b>
-          <ol className="list-decimal ml-5 mt-1 space-y-0.5">
-            <li>Open <b>https://atlas.mongodb.org</b> with the account that made this database and log in.</li>
-            <li>Go to <b>Database → Clusters</b>. If your cluster shows <b>PAUSED</b>, click <b>Resume</b>. If it is gone, click <b>Create</b> to make a new FREE cluster.</li>
-            <li>Open <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">.env.local</code> and paste the fresh connection string into <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">MONGODB_URI</code> (remember <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">/the-store</code> before the ?).</li>
-            <li>Restart <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">npm run dev</code> — this warning disappears and everything saves.</li>
-          </ol>
-        </div>
-      ) : null}
-
-      <div className="flex gap-1.5 overflow-x-auto mb-5 pb-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`shrink-0 text-sm font-semibold px-4 py-2 rounded-lg transition ${
-              tab === t.id ? 'bg-brand text-white' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-brand'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'dashboard' ? <AdminDashboard goToOrders={() => setTab('orders')} goToProducts={() => setTab('products')} /> : null}
-      {tab === 'products' ? <AdminProducts /> : null}
-      {tab === 'categories' ? <AdminCategories /> : null}
-      {tab === 'orders' ? <AdminOrders /> : null}
-      {tab === 'returns' ? <AdminReturns /> : null}
-      {tab === 'coupons' ? <AdminCoupons /> : null}
-      {tab === 'broadcast' ? <AdminBroadcast /> : null}
-      {tab === 'settings' ? <AdminSettings /> : null}
-    </div>
+    </AdminToastProvider>
   )
 }

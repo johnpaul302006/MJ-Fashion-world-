@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth'
 import * as razorpay from '@/lib/payments/razorpay'
 import * as stripe from '@/lib/payments/stripe'
 import { markOrderPaid } from '@/lib/payments'
+import { dispatchOrderNotification } from '@/lib/notifications'
 
 // The frontend can never declare an order paid on its own — every claim is
 // verified here against the gateway before the order is marked paid.
@@ -71,6 +72,9 @@ export async function POST(request) {
         paymentId: rpPaymentId,
       })
       await order.save()
+      dispatchOrderNotification(order, 'order_confirmed').catch((err) => {
+        console.error('[Notification Trigger] Payment confirmed dispatch failed:', err.message)
+      })
       return NextResponse.json({ ok: true })
     }
 
@@ -102,6 +106,9 @@ export async function POST(request) {
       paymentId: result.paymentId || '',
     })
     await order.save()
+    dispatchOrderNotification(order, 'order_confirmed').catch((err) => {
+      console.error('[Notification Trigger] Payment confirmed dispatch failed:', err.message)
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err.status === 401) {

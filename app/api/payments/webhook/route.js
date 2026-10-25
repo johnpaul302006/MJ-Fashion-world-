@@ -4,6 +4,7 @@ import { Order } from '@/lib/models'
 import * as stripe from '@/lib/payments/stripe'
 import * as razorpay from '@/lib/payments/razorpay'
 import { markOrderPaid } from '@/lib/payments'
+import { dispatchOrderNotification } from '@/lib/notifications'
 
 // Optional webhook endpoints for extra reliability. The primary source of
 // truth is /api/payments/verify, but gateways may also notify us here.
@@ -73,5 +74,8 @@ async function settle(orderId, provider, refId, paymentId) {
   if (order.payment.refId && refId && order.payment.refId !== refId) return false
   markOrderPaid(order, { provider, refId, paymentId })
   await order.save()
+  dispatchOrderNotification(order, 'order_confirmed').catch((err) => {
+    console.error('[Notification Trigger] Webhook payment confirmed dispatch failed:', err.message)
+  })
   return true
 }

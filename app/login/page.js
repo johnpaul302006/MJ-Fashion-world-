@@ -20,7 +20,7 @@ function EyeIcon({ show }) {
 }
 
 const inputCls =
-  'w-full border-2 border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] dark:text-white rounded-sm px-4 py-3 text-sm outline-none focus:border-brand transition-colors placeholder-gray-300 dark:placeholder-gray-600'
+  'w-full border border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-[#1f1f1f] dark:text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-brand focus:bg-white dark:focus:bg-[#1a1a1a] transition-all placeholder-gray-400 dark:placeholder-gray-500 shadow-2xs'
 
 export default function LoginPage() {
   const { login, user, loading } = useAuth()
@@ -144,7 +144,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-sm px-4 py-3 rounded-sm font-medium">
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-xs sm:text-sm px-4 py-3 rounded-xl font-medium">
             {error}
           </div>
         )}
@@ -152,7 +152,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="relative w-full bg-brand hover:bg-brand-dark disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-black py-3.5 text-sm tracking-widest uppercase transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed shadow-sm hover:shadow-md overflow-hidden mt-2"
+          className="relative w-full bg-brand hover:bg-brand-dark disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm tracking-wider uppercase transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed shadow-sm hover:shadow-md overflow-hidden mt-3"
         >
           <span aria-hidden className="shine absolute inset-0 pointer-events-none" />
           {busy ? 'Signing in…' : 'Login'}
