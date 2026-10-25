@@ -125,7 +125,7 @@ export default function SignupPage() {
 
         <Field label="Mobile Number" error={fieldErrors.phone} hint="Used for delivery updates">
           <input type="tel" required autoComplete="tel" value={form.phone} onChange={set('phone')}
-            placeholder="9876543210" className={inputCls} maxLength={13} />
+            placeholder="10-digit mobile number" className={inputCls} maxLength={13} />
         </Field>
 
         <Field label="Password" error={fieldErrors.password}>

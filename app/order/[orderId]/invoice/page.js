@@ -62,8 +62,9 @@ export default async function InvoicePage({ params, searchParams }) {
 
   const settings = await getSettings()
   const storeName = settings?.storeName || 'MJ FASHION WORLD'
-  const storeAddress = settings?.address || '12, Fashion Street, Commercial Hub, India'
-  const storePhone = settings?.phone || '+91 98765 43210'
+  const storeAddress = settings?.address?.trim() || ''
+  const storePhone = settings?.phone?.trim() || ''
+  const supportEmail = (process.env.HOST_EMAIL || 'sjohnpaul638@gmail.com').trim()
   const storeGstin = settings?.gstin || ''
 
   const subtotal = order.originalAmount || order.items?.reduce((sum, item) => sum + (item.price * item.qty), 0) || order.amount
@@ -115,10 +116,27 @@ export default async function InvoicePage({ params, searchParams }) {
                 {storeName}
               </h1>
             </div>
-            <p className="text-xs text-neutral-600 max-w-sm leading-relaxed">{storeAddress}</p>
-            <p className="text-xs text-neutral-600">
-              <span className="font-semibold">Phone:</span> {storePhone}
-            </p>
+            {storeAddress ? (
+              <p className="text-xs text-neutral-600 max-w-sm leading-relaxed">{storeAddress}</p>
+            ) : (
+              <p className="text-xs text-amber-800 dark:text-amber-400 print:text-neutral-500 italic max-w-sm">
+                Address: [Not Configured — Update in Admin &gt; Settings]
+              </p>
+            )}
+            {storePhone ? (
+              <p className="text-xs text-neutral-600">
+                <span className="font-semibold">Phone:</span> {storePhone}
+              </p>
+            ) : (
+              <p className="text-xs text-amber-800 dark:text-amber-400 print:text-neutral-500 italic">
+                <span className="font-semibold">Phone:</span> [Not Configured — Update in Admin &gt; Settings]
+              </p>
+            )}
+            {supportEmail ? (
+              <p className="text-xs text-neutral-600">
+                <span className="font-semibold">Support Email:</span> {supportEmail}
+              </p>
+            ) : null}
             {storeGstin ? (
               <p className="text-xs text-neutral-800">
                 <span className="font-semibold">GSTIN:</span> <span className="font-mono">{storeGstin}</span>

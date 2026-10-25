@@ -306,7 +306,7 @@ function HostOrdersView() {
           <input
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            placeholder="Order ID (e.g. JN-X3K2A) or Mobile Number (e.g. 9876543210)"
+            placeholder="Order ID (e.g. JN-X3K2A) or 10-digit Mobile Number"
             className="w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2.5 text-sm outline-none focus:border-brand transition-colors"
           />
         </div>
@@ -460,7 +460,7 @@ function CustomerOrderView() {
     setPhoneError('')
     const cleanPhone = phoneInput.replace(/[^0-9]/g, '')
     if (cleanPhone.length !== 10) {
-      setPhoneError('Please enter a valid 10-digit mobile number (e.g. 9876543210)')
+      setPhoneError('Please enter a valid 10-digit mobile number')
       return
     }
 

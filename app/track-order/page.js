@@ -180,16 +180,8 @@ function TrackOrderContent() {
             </p>
           )}
 
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-neutral-500">
-            <span>Examples:</span>
-            <button
-              type="button"
-              onClick={() => { setQuery('9876543210'); runTracking('9876543210') }}
-              className="underline hover:text-neutral-300 transition cursor-pointer"
-            >
-              9876543210
-            </button>
-            <span>•</span>
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-neutral-500">
+            <span>Already have an account?</span>
             <Link href="/orders" className="underline hover:text-neutral-300 transition">
               View All My Orders
             </Link>

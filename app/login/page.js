@@ -104,7 +104,7 @@ export default function LoginPage() {
             autoComplete="username"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="you@example.com or 9876543210"
+            placeholder="you@example.com or 10-digit mobile"
             className={inputCls}
           />
         </div>

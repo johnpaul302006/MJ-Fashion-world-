@@ -250,7 +250,7 @@ export default function AdminBroadcast() {
               <span className="w-2 h-2 rounded-full bg-amber-400" />
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span className="text-[9px] text-slate-500 ml-2 font-mono truncate">
-                mjfashionworld.com
+                mjfashionworld.netlify.app
               </span>
             </div>
 

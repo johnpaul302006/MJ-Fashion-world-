@@ -896,12 +896,18 @@ export default function CheckoutPage() {
                           </div>
                         )}
                         <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">Pay <b className="text-gray-900 dark:text-white">{inr(total)}</b> to</p>
-                        <p className="text-sm font-black text-brand">{settings?.upiId || 'upi-id@upi'}</p>
-                        {settings?.upiId && (
-                          <a href={`upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.storeName || 'Store')}&am=${total}&cu=INR`}
-                            className="mt-2 inline-block text-xs font-semibold text-brand hover:underline">
-                            Tap to open UPI app →
-                          </a>
+                        {settings?.upiId ? (
+                          <>
+                            <p className="text-sm font-black text-brand font-mono">{settings.upiId}</p>
+                            <a href={`upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.storeName || 'Store')}&am=${total}&cu=INR`}
+                              className="mt-2 inline-block text-xs font-semibold text-brand hover:underline">
+                              Tap to open UPI app →
+                            </a>
+                          </>
+                        ) : (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                            UPI ID not set by store yet. Please select Cash on Delivery.
+                          </p>
                         )}
                       </div>
                       <div className="bg-gray-50 dark:bg-[#1a1a1a] border border-gray-100 dark:border-[#222] p-4 rounded-sm">

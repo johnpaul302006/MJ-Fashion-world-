@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getProduct, getProducts } from '@/lib/data'
+import { SITE_URL } from '@/lib/site'
 import ProductDetailsClient from '@/components/pdp/ProductDetailsClient'
 
 export async function generateMetadata({ params }) {
@@ -9,7 +10,7 @@ export async function generateMetadata({ params }) {
     return { title: 'Product Not Found | MJ Fashion World' }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mjfashionworld.com'
+  const siteUrl = SITE_URL
   const canonicalUrl = `${siteUrl}/product/${product._id}`
   const description =
     product.description ||

@@ -4,6 +4,7 @@ import SiteShell from "@/components/SiteShell";
 import SmoothScroll from "@/components/SmoothScroll";
 import DevPerfPatch from "@/components/DevPerfPatch";
 import { getSettings } from "@/lib/data";
+import { SITE_URL } from "@/lib/site";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -12,7 +13,7 @@ const inter = Inter({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mjfashionworld.com';
+const siteUrl = SITE_URL;
 
 export const metadata = {
   metadataBase: new URL(siteUrl),

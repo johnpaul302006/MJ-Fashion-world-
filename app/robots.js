@@ -1,5 +1,7 @@
+import { SITE_URL } from '@/lib/site'
+
 export default function robots() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mjfashionworld.com'
+  const siteUrl = SITE_URL
 
   return {
     rules: [

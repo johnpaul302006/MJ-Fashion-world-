@@ -31,8 +31,9 @@ export default async function PackingSlipPage({ params, searchParams }) {
 
   const settings = await getSettings()
   const storeName = settings?.storeName || 'MJ FASHION WORLD'
-  const storeAddress = settings?.address || '12, Fashion Street, Commercial Hub, India'
-  const storePhone = settings?.phone || '+91 98765 43210'
+  const storeAddress = settings?.address?.trim() || ''
+  const storePhone = settings?.phone?.trim() || ''
+  const supportEmail = (process.env.HOST_EMAIL || 'sjohnpaul638@gmail.com').trim()
 
   const isCod = order.paymentMethod === 'cod'
   const totalItems = order.items?.reduce((acc, item) => acc + (Number(item.qty) || 1), 0) || 0
@@ -72,8 +73,23 @@ export default async function PackingSlipPage({ params, searchParams }) {
                 {storeName}
               </h1>
             </div>
-            <p className="text-[11px] text-neutral-600 leading-tight">{storeAddress}</p>
-            <p className="text-[11px] text-neutral-600">Support: {storePhone}</p>
+            {storeAddress ? (
+              <p className="text-[11px] text-neutral-600 leading-tight">{storeAddress}</p>
+            ) : (
+              <p className="text-[11px] text-amber-800 dark:text-amber-400 print:text-neutral-500 italic leading-tight">
+                Return Address: [Not Configured — Update in Admin &gt; Settings]
+              </p>
+            )}
+            {storePhone ? (
+              <p className="text-[11px] text-neutral-600">Support: {storePhone}</p>
+            ) : (
+              <p className="text-[11px] text-amber-800 dark:text-amber-400 print:text-neutral-500 italic">
+                Support: [Not Configured — Update in Admin &gt; Settings]
+              </p>
+            )}
+            {supportEmail ? (
+              <p className="text-[11px] text-neutral-600">Email: {supportEmail}</p>
+            ) : null}
           </div>
 
           <div className="text-right">

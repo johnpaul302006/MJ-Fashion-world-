@@ -327,6 +327,19 @@ export default function AdminSettings() {
         {/* Tab 1: General & Store Info */}
         {activeTab === 'general' && (
           <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 space-y-4 shadow-xs">
+            {(!form.address || !form.phone || !form.upiId) && (
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                <span className="text-base shrink-0">⚠️</span>
+                <div>
+                  <p className="font-bold">Complete your business details:</p>
+                  <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                    {!form.upiId && '• Add your real UPI ID for receiving payments. '}
+                    {!form.phone && '• Add your official support phone number for invoices and notifications. '}
+                    {!form.address && '• Add your warehouse or shop address for customer invoices and packing slips.'}
+                  </p>
+                </div>
+              </div>
+            )}
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Store Identity</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">Basic brand name and contact details</p>
@@ -376,7 +389,7 @@ export default function AdminSettings() {
                 <input
                   value={form.phone}
                   onChange={set('phone')}
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 9XXXXXXXXX"
                   className="w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-3.5 py-2.5 text-xs sm:text-sm outline-none focus:border-brand"
                 />
               </div>

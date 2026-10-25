@@ -1,7 +1,8 @@
 import { getProducts, getCategories } from '@/lib/data'
+import { SITE_URL } from '@/lib/site'
 
 export default async function sitemap() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mjfashionworld.com'
+  const siteUrl = SITE_URL
   const now = new Date()
 
   // 1. Static Core Pages
